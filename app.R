@@ -1,0 +1,394 @@
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+
+options(stringsAsFactors = FALSE)
+
+library(hash)
+library(lubridate)
+library(shiny)
+library(shinyjs)
+library(jsonlite)
+library(googlesheets)
+# Note that googlesheets depends on the R library openssl being installed,
+# and on a Mac, "install.packages("openssl") fails unless openssl has 
+# already been installed on the computer (e.g., by running
+#    > brew install openssl
+# ).
+
+# Great documentation for googlesheets:
+# https://rawgit.com/jennybc/googlesheets/master/vignettes/basic-usage.html
+
+suppressMessages(library(dplyr))
+library(httr)
+#library(RGoogleAnalytics)
+# Some online documentation for how to use RGoogleAnalytics is out of date.
+# Consult demo(package="RGoogleAnalytics") instead.
+
+library(RGA)
+# RGA documentation is here:
+# https://cran.r-project.org/web/packages/RGA/vignettes/authorize.html
+
+
+class_key <- function(x,y) {
+  # A simple helper function to concatenate together two strings,
+  # separated by a semicolon.
+  key <- paste(x,y,sep=";")
+  return(key)
+}
+ 
+categorize_class_uses <- function(df) {
+  # Return a data frame that counts number of uses of the Data Center
+  # by semester and school. 
+  
+  # This function initially just computed the hash (uses_by_term)
+  # and then reformatted it as a data frame to make it easier to
+  # output a table. It's possible that this could now be refactored
+  # to simplify the code.
+  
+  # The more conventionally R approach is 
+  # to use a vectorized/functional approach, like:
+  #    apply(c_uses_ws,1,categorize)
+  # but I'm using a for loop for now.
+
+  uses_by_term <- hash()
+  insts <- c()
+  ts <- c()
+  for(i in 1:nrow(df)) {
+    row <- df[i,]
+    institution <- row$Institution
+    term <- row$Semester
+    if(!(grepl("CMU|Pitt",institution) > 0))
+      institution <- "Other"
+    if(!(institution %in% insts)) # Construct insts and ts as ordered unique
+      insts <- append(insts,institution)   # lists of institutions and terms.
+    if(!(term %in% ts))
+      ts <- append(ts,term)
+    key <- class_key(term,institution)
+    if(!(key %in% keys(uses_by_term))){
+      uses_by_term[[key]] <- 0
+    }
+    uses_by_term[[key]] <- uses_by_term[[key]]+1
+  }
+  
+  counts <- c()
+  term_column <- c()
+  inst_column <- c()
+  for(i in 1:length(ts)) {
+    for(j in 1:length(insts)) {
+      term_column <- append(term_column,ts[i])
+      inst_column <- append(inst_column,insts[j])
+      u <- uses_by_term[[class_key(ts[i],insts[j])]]
+      if(is.null(u)) 
+        counts <- append(counts,0)
+      else
+        counts <- append(counts,u)
+    }
+  }
+    
+  df_out <- data.frame(term = term_column, institution = inst_column, count = counts)
+  return(df_out)
+}
+
+get_month_stats <- function(year,month,p_Id) {
+  # Given a particular month, year, and Google Analytics profile ID,
+  # pull the users, sessions, and page views for the specified month.
+  start_date_string <- paste(toString(year),toString(month),"01",sep="-")
+  end_date <- as.Date(start_date_string)
+  day(end_date) <- days_in_month(end_date)
+  
+  month_stats = get_ga(profileId = p_Id, start.date = start_date_string,
+                   end.date = end_date, metrics = c("ga:users", "ga:sessions",
+                                                    "ga:pageviews"), fetch.by = "month")
+  return(month_stats)
+}
+
+get_API_requests <- function(start_date="30daysAgo",end_date="yesterday",
+                             p_Id,client_id=NULL,client_secret=NULL,production=FALSE) {
+#  if(is.null(client_id)) {
+    authorize()
+    ga_data <- get_ga(profileId = p_Id)
+#  } else {
+#    ga_token <- authorize(client.id = client_id, client.secret = client_secret)
+#    ga_data <- get_ga(profileId = p_Id, token = ga_token)
+#  }
+# Eventually switch to this kind of authorization:
+#ga_token <- authorize(client.id = "client_id", client.secret = "client_secret")
+#ga_data <- get_ga(profileId = "ga:XXXXXXXX", token = ga_token)
+
+    
+# This requires creating a Google project in the Google Developers Console.
+# This is to allow Google sign-in for the project (in this case, the Shiny 
+# dashboard). 
+# https://developers.google.com/identity/sign-in/web/devconsole-project
+
+# See
+# https://cran.r-project.org/web/packages/RGA/vignettes/authorize.html
+# about creating and hiding these credentials.
+
+  API_requests <- get_ga(profileId = p_Id, start.date = start_date,
+         end.date = end_date, 
+         metrics = c("ga:totalEvents", "ga:uniqueEvents"), 
+         dimensions = c("ga:eventCategory", "ga:eventLabel"),
+         sort = c("-ga:totalEvents"))
+  # The Query Explorer
+  #   https://ga-dev-tools.appspot.com/query-explorer/
+  # is useful for constructing such queries.
+  return(API_requests)
+}
+
+reduce_to_downloads <- function(df) {
+  # Takes the result from get_API_requests, filters down to only the resource
+  # downloads, and eliminates the then-unneeded "eventCategory" column.
+  df <- df[df$eventCategory=="CKAN Resource Download Request",]
+  df <- df[,!(names(df) %in% c("eventCategory"))]
+  return(df)
+}
+
+name_datasets <- function(df) {
+  # Pull from the Data Center's CKAN API a list of all resources and use this to
+  # obtain resource names, organizations, package names, and ID values to label
+  # the Google Analytics statistics (which are listed by resource ID).
+  json_file <- "https://data.wprdc.org/api/3/action/current_package_list_with_resources?limit=9999"
+  json_data <- fromJSON(json_file)
+
+  for(j in 1:nrow(json_data$result)) {
+    package <- json_data$result[j,]
+#    if(!is.na(package$num_resources)) {
+#      count <- count + as.numeric(package$num_resources)
+#    } # ==> count = 607
+    
+    for(k in 1:length(package$resources[[1]]$id)) {
+      resources <- package$resources[[1]]
+      if((length(resources$name) > 0)) {
+        if(is.na(resources$name[[k]])) {
+          dataset <- "Unnamed resource"
+        } else {
+          dataset <- resources$name[[k]]
+        }
+        
+        if(j*k == 1) {
+          resource_map <- data_frame(Package=c(package$title),
+                                     Dataset=c(dataset),
+                                     Organization=c(package$organization$title),
+                                     id=c(resources$id[[k]]),
+                                     package_id=c(resources$package_id[[k]]))
+        } else {
+          resource_map <- rbind(resource_map, 
+                                c(package$title,
+                                dataset,
+                                package$organization$title,
+                                resources$id[[k]],
+                                resources$package_id[[k]]))
+        }
+      }
+    }
+  }
+  
+  # The next part could probably more simply be done with the merge function.
+  resource_map$"1-month downloads" <- 0
+  resource_map$"1-month unique downloads" <- 0
+  resource_map$"All-time downloads" <- 0
+  resource_map$"All-time unique downloads" <- 0
+  for(i in 1:nrow(resource_map)) {
+    if(resource_map$id[[i]] %in% df$eventLabel){
+      matched_row <- df[df$eventLabel == resource_map$id[[i]],]
+      resource_map$"1-month downloads"[[i]] <- matched_row$totalEvents.x
+      resource_map$"1-month unique downloads"[[i]] <- matched_row$uniqueEvents.x
+      resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
+      resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
+    } else {
+      resource_map$"1-month downloads"[[i]] <- 0
+      resource_map$"1-month unique downloads"[[i]] <- 0
+      resource_map$"All-time downloads"[[i]] <- 0
+      resource_map$"All-time unique downloads"[[i]] <- 0
+    }
+  }
+  return(resource_map)
+}
+
+group_by_package <- function(df) {
+  # Eliminate the datasets and sum download counts over all datasets
+  # in a given package.
+  
+  # Again, there's surely a better way to do this. 
+  # One option is to use the dplyr package:
+  # http://www.statsblogs.com/2014/02/10/how-dplyr-replaced-my-most-common-r-idioms/
+  package_list <- unique(df$Package)
+  for(k in 1:length(package_list)) {
+    matched_rows <- df[df$Package == package_list[[k]],]
+    dl_1 <- sum(matched_rows$"1-month downloads")
+    dl_1_unique <- sum(matched_rows$"1-month unique downloads")
+    dl_all <- sum(matched_rows$"All-time downloads")
+    dl_all_unique <- sum(matched_rows$"All-time unique downloads")
+    if(k == 1) {
+      grouped <- data_frame(Package=c(matched_rows$Package[[1]]),
+                                 Organization=c(matched_rows$Organization[[1]]),
+                                 "1-month downloads"=as.numeric(c(dl_1)),
+                                 "1-month unique downloads"=c(dl_1_unique),
+                                 "All-time downloads"=c(dl_all),
+                                 "All-time unique downloads"=c(dl_all_unique),
+                                 Resources=c(nrow(matched_rows)))
+    } else {
+      grouped <- rbind(grouped, 
+                            c(matched_rows$Package[[1]],
+                              matched_rows$Organization[[1]],
+                              dl_1,
+                              dl_1_unique,
+                              dl_all,
+                              dl_all_unique,
+                              nrow(matched_rows)))
+    }
+  }
+  grouped$`1-month downloads` <- as.numeric(grouped$`1-month downloads`)
+  grouped$`1-month unique downloads` <- as.numeric(grouped$`1-month unique downloads`)
+  grouped$`All-time downloads` <- as.numeric(grouped$`All-time downloads`)
+  grouped$`All-time unique downloads` <- as.numeric(grouped$`All-time unique downloads`)
+  return(grouped)
+}
+
+within_n_days_of <- function(df,n,last_date) {
+  difference_in_days <- today-as.Date(df$Date,"%m/%d/%Y")
+  df <- df[difference_in_days <= n,]
+  return(df)
+}
+
+source("wprdc_profile.R") # Look up the sheet_key to access
+# the Google Docs spreadsheet.
+source("authentication.R") # Look up the p_Id, client ID, and client
+# secret to access the Google Analytics account.
+
+production <- FALSE
+
+API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+downloads_per_month <- reduce_to_downloads(API_requests_month)
+all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+all_downloads <- reduce_to_downloads(all_API_requests)
+
+df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
+df_downloads <- name_datasets(df_downloads)
+df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
+downloads_by_package <- group_by_package(df_downloads)
+
+# [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
+# When RGA samples a metric every day (using the fetch.by = "day" option), 
+# it is extremely slow since it breaks the query down into many queries that
+# are then batched but still run at 10 samples/second since that is the Google
+# API's limit per IP address.
+
+# Batching Google Analytics API requests was just added in September 2015:
+# https://developers.google.com/analytics/devguides/reporting/core/v3/batching
+
+# Conclusion: It's possible to pull data directly from Google Analytics through
+# R, but either 1) keeping the data in the Google Docs spreadsheet and pulling 
+# it from there or else 2) using the Google Analytics Embed API (inserting 
+# JavaScript) into the R Shiny dashboard) should be faster.
+
+metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
+
+site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
+today <- Sys.Date()
+year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7) 
+ # produces a list like "2015-10" "2015-11" "2015-12" ...
+# Add these to the spreadsheet as a "year_month" column to search for.
+
+c_uses_ws <- metrics %>% gs_read(ws = "Classroom Uses")
+gadp <- metrics %>% gs_read(ws = "Google analytics Data Portal")
+
+pitt_uses <- nrow(c_uses_ws[c_uses_ws$Institution == "Pitt",])
+cmu_uses <- nrow(c_uses_ws[grep("CMU",c_uses_ws$Institution),])
+classroom_uses <- nrow(c_uses_ws)
+
+df_uses <- categorize_class_uses(c_uses_ws)
+
+media_mentions <- nrow(metrics %>% gs_read(ws = "Media")) - 1
+outreach_events_table <- metrics %>% gs_read(ws = "Project Outreach & Events")
+outreach_and_events <- nrow(outreach_events_table) - 1
+outreach_fields <- outreach_events_table[1,]
+colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
+outreach_events_table <- outreach_events_table[-c(1),]
+
+recent_events <- within_n_days_of(outreach_events_table,90,today)
+
+ga_site_stats <- na.omit(gadp[-c(3,4),]) # Eliminating rows 3 and 4 (which 
+# do not contain one month of data) and any rows that contain NA values.
+new_percentage <- ga_site_stats$'New Users'/100
+users <- ga_site_stats$Users
+
+ui <- shinyUI(fluidPage(
+  tags$head(tags$style(
+    HTML('
+         #sidebar {
+            background-color: #000;
+            color: white;
+         }
+
+        body, label, input, button, select { 
+          font-family: Optima,"Lucida Grande",Tahoma;
+        }')
+  )),
+   # Application title
+   titlePanel("",windowTitle = "Data Center Metrics"),
+   
+    mainPanel(
+      HTML("<div style='background-color:white;float:left;color:black;
+           width:100%;margin:0;padding:0;left:0;
+           font-size:200%'>Data Center Metrics"),
+      HTML("<span style='float:right'>"),
+      img(src="images/small-WPRDC-logo-inverted.png"),
+      HTML("</span>"),
+       # Shiny R wants all images and JavaScript and stuff to be nested in a
+       # folder called "www" which is in the same directory as app.R.
+       # So images would be in dashboard_folder/www/images/, but when 
+       # you call them, you drop the "www", e.g., img(src="images/z.png")
+      HTML("</div>"),
+       
+#            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
+
+      tabsetPanel(
+        tabPanel("Users",plotOutput("userPlot")), 
+        # Show a plot of the generated distribution
+#         h2("Cumulative statistics"),
+#h2('Download stats'),
+         tabPanel("File downloads",dataTableOutput('downloads_table')),
+         tabPanel("Package downloads",dataTableOutput('by_package')),
+         tabPanel("Classroom uses", 
+                  dataTableOutput('uses_table'),
+                  HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
+                             classroom_uses, pitt_uses, cmu_uses))),
+         tabPanel("Outreach",
+                  h4("Media mentions: ", media_mentions),
+                  HTML("<hr>"),
+                  h4("Total outreach instances & events: ", outreach_and_events),
+                  HTML("<center style='font-size:140%'>Breakdown of outreach/events</center>"),
+                  plotOutput("event_types_plot"))
+      )
+    )
+  )
+)
+
+# Define server logic required to render the output
+server <- shinyServer(function(input, output) {
+   
+   output$userPlot <- renderPlot({
+     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+   })
+   output$uses_table = renderDataTable({
+     df_uses
+   })
+   output$downloads_table = renderDataTable({
+     df_downloads[order(-df_downloads$"1-month downloads"),] 
+   })
+   output$by_package = renderDataTable({
+     downloads_by_package[order(-downloads_by_package$"1-month downloads"),] 
+   },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
+   output$event_types_plot = renderPlot({
+     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
+             las=1,xlab="Count",col=c("#ff3300"))
+#     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),horiz=TRUE,
+#             las=1,xlab="Count",col=c("#ff3300"))
+   })
+})
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
