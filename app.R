@@ -98,8 +98,9 @@ get_month_stats <- function(year,month,p_Id) {
   
   month_stats <- get_ga(profileId = p_Id, start.date = start_date_string,
                   end.date = end_date, metrics = c("ga:users", "ga:sessions",
-                                                    "ga:pageviews", "ga:avgSessionDuration",
-                                                    "ga:pageviewsPerSession"), fetch.by = "month")
+                                                    "ga:pageviews", 
+                                                    "ga:pageviewsPerSession",
+                                                    "ga:avgSessionDuration"), fetch.by = "month")
   return(month_stats)
 }
 
@@ -270,7 +271,17 @@ source("authentication.R") # Look up the p_Id, client ID, and client
 
 production <- FALSE
 
-df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
+#df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
+
+metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
+
+site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
+site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
+today <- Sys.Date()
+year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
+# produces a list like "2015-10" "2015-11" "2015-12" ...
+# Add these to the spreadsheet as a "year_month" column to search for.
+
 
 API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
 downloads_per_month <- reduce_to_downloads(API_requests_month)
@@ -296,14 +307,6 @@ downloads_by_package <- group_by_package(df_downloads)
 # it from there or else 2) using the Google Analytics Embed API (inserting 
 # JavaScript) into the R Shiny dashboard) should be faster.
 
-metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-
-site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
-today <- Sys.Date()
-year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7) 
-# produces a list like "2015-10" "2015-11" "2015-12" ...
-# Add these to the spreadsheet as a "year_month" column to search for.
-
 c_uses_ws <- metrics %>% gs_read(ws = "Classroom Uses")
 gadp <- metrics %>% gs_read(ws = "Google analytics Data Portal")
 
@@ -312,6 +315,14 @@ cmu_uses <- nrow(c_uses_ws[grep("CMU",c_uses_ws$Institution),])
 classroom_uses <- nrow(c_uses_ws)
 
 df_uses <- categorize_class_uses(c_uses_ws)
+
+other_web_stats <- metrics %>% gs_read(ws = "Other Web Stats")
+other_web_stats <- other_web_stats[-c(4,5),] # Eliminating rows 3 and 4 (which 
+# do not contain one month of data) and any rows that contain NA values.
+publishers <- other_web_stats[,(names(other_web_stats) %in% 
+                                  c("Date","Total Publishers","Academic Publishers",
+                                    "Government Publishers","Non-Profit Publishers",
+                                    "Other Publishers"))]
 
 media_mentions <- nrow(metrics %>% gs_read(ws = "Media")) - 1
 outreach_events_table <- metrics %>% gs_read(ws = "Project Outreach & Events")
@@ -358,10 +369,11 @@ ui <- shinyUI(fluidPage(
 #            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
 
       tabsetPanel(
-        tabPanel("Users",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
+        tabPanel("Web stats",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
         # Show a plot of the generated distribution
 #         h2("Cumulative statistics"),
 #h2('Download stats'),
+         tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers')),
          tabPanel("File downloads",dataTableOutput('downloads_table')),
          tabPanel("Package downloads",dataTableOutput('by_package')),
          tabPanel("Classroom uses", 
@@ -386,7 +398,7 @@ server <- shinyServer(function(input, output) {
      barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
    })
    output$analytics_table = renderDataTable({
-     df_analytics
+     site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
    })
    output$uses_table = renderDataTable({
      df_uses
@@ -397,6 +409,9 @@ server <- shinyServer(function(input, output) {
    output$by_package = renderDataTable({
      downloads_by_package[order(-downloads_by_package$"1-month downloads"),] 
    },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
+   output$publishers = renderDataTable({
+     publishers
+   })
    output$event_types_plot = renderPlot({
      dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#ff3300"))
