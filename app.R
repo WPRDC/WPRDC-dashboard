@@ -96,26 +96,37 @@ get_month_stats <- function(year,month,p_Id) {
   end_date <- as.Date(start_date_string)
   day(end_date) <- days_in_month(end_date)
   
-  month_stats = get_ga(profileId = p_Id, start.date = start_date_string,
-                   end.date = end_date, metrics = c("ga:users", "ga:sessions",
-                                                    "ga:pageviews"), fetch.by = "month")
+  month_stats <- get_ga(profileId = p_Id, start.date = start_date_string,
+                  end.date = end_date, metrics = c("ga:users", "ga:sessions",
+                                                    "ga:pageviews", "ga:avgSessionDuration",
+                                                    "ga:pageviewsPerSession"), fetch.by = "month")
   return(month_stats)
 }
 
+authorize_analytics <- function(p_Id,client_id,client_secret,production) {
+  #  if(is.null(client_id)) {
+  authorize()
+  ga_data <- get_ga(profileId = p_Id)
+  #  } else {
+  #    ga_token <- authorize(client.id = client_id, client.secret = client_secret)
+  #    ga_data <- get_ga(profileId = p_Id, token = ga_token)
+  #  }
+  # Eventually switch to this kind of authorization:
+  #ga_token <- authorize(client.id = "client_id", client.secret = "client_secret")
+  #ga_data <- get_ga(profileId = "ga:XXXXXXXX", token = ga_token)
+  
+}
+
+get_analytics <- function(year,month,p_Id,client_id,client_secret,production) {
+  authorize_analytics(p_Id,client_id,client_secret,production)  
+  month_stats <- get_month_stats(year,month,p_Id)
+  return(month_stats)
+}
+  
 get_API_requests <- function(start_date="30daysAgo",end_date="yesterday",
                              p_Id,client_id=NULL,client_secret=NULL,production=FALSE) {
-#  if(is.null(client_id)) {
-    authorize()
-    ga_data <- get_ga(profileId = p_Id)
-#  } else {
-#    ga_token <- authorize(client.id = client_id, client.secret = client_secret)
-#    ga_data <- get_ga(profileId = p_Id, token = ga_token)
-#  }
-# Eventually switch to this kind of authorization:
-#ga_token <- authorize(client.id = "client_id", client.secret = "client_secret")
-#ga_data <- get_ga(profileId = "ga:XXXXXXXX", token = ga_token)
 
-    
+  authorize_analytics(p_Id,client_id,client_secret,production)
 # This requires creating a Google project in the Google Developers Console.
 # This is to allow Google sign-in for the project (in this case, the Shiny 
 # dashboard). 
@@ -259,6 +270,8 @@ source("authentication.R") # Look up the p_Id, client ID, and client
 
 production <- FALSE
 
+df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
+
 API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
 downloads_per_month <- reduce_to_downloads(API_requests_month)
 all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
@@ -288,7 +301,7 @@ metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
 site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
 today <- Sys.Date()
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7) 
- # produces a list like "2015-10" "2015-11" "2015-12" ...
+# produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
 c_uses_ws <- metrics %>% gs_read(ws = "Classroom Uses")
@@ -345,7 +358,7 @@ ui <- shinyUI(fluidPage(
 #            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
 
       tabsetPanel(
-        tabPanel("Users",plotOutput("userPlot")), 
+        tabPanel("Users",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
         # Show a plot of the generated distribution
 #         h2("Cumulative statistics"),
 #h2('Download stats'),
@@ -372,6 +385,9 @@ server <- shinyServer(function(input, output) {
    output$userPlot <- renderPlot({
      barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
    })
+   output$analytics_table = renderDataTable({
+     df_analytics
+   })
    output$uses_table = renderDataTable({
      df_uses
    })
@@ -384,8 +400,6 @@ server <- shinyServer(function(input, output) {
    output$event_types_plot = renderPlot({
      dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#ff3300"))
-#     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),horiz=TRUE,
-#             las=1,xlab="Count",col=c("#ff3300"))
    })
 })
 
