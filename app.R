@@ -272,7 +272,9 @@ source("authentication.R") # Look up the p_Id, client ID, and client
 
 today <- Sys.Date()
 production <- FALSE
-
+if(production) {
+  setwd("/srv/shiny-server/WPRDC")
+}
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
 cached_metrics_file = "cached_metrics_sheet.xlsx"
