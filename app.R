@@ -269,6 +269,7 @@ source("wprdc_profile.R") # Look up the sheet_key to access
 source("authentication.R") # Look up the p_Id, client ID, and client
 # secret to access the Google Analytics account.
 
+today <- Sys.Date()
 production <- FALSE
 
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
@@ -277,11 +278,12 @@ metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
 
 site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
 site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
-today <- Sys.Date()
+site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
+site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
-
+#site_stats <- load("./site_stats.csv")
 
 API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
 downloads_per_month <- reduce_to_downloads(API_requests_month)
@@ -395,7 +397,8 @@ ui <- shinyUI(fluidPage(
 server <- shinyServer(function(input, output) {
    
    output$userPlot <- renderPlot({
-     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
+             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
    })
    output$analytics_table = renderDataTable({
      site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
