@@ -17,6 +17,7 @@ library(googlesheets)
 
 # Great documentation for googlesheets:
 # https://rawgit.com/jennybc/googlesheets/master/vignettes/basic-usage.html
+library(readxl)
 
 suppressMessages(library(dplyr))
 library(httr)
