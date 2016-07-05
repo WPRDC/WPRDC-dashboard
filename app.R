@@ -274,16 +274,18 @@ production <- FALSE
 
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
+cached_metrics_file = "cached_metrics_sheet.xlsx"
 metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-
-site_stats <- metrics %>% gs_read(ws = "(dashboard:site stats)")
-site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
+metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
+  
+site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
+site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
 site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
+site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
 site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
-#site_stats <- load("./site_stats.csv")
 
 API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
 downloads_per_month <- reduce_to_downloads(API_requests_month)
@@ -309,8 +311,13 @@ downloads_by_package <- group_by_package(df_downloads)
 # it from there or else 2) using the Google Analytics Embed API (inserting 
 # JavaScript) into the R Shiny dashboard) should be faster.
 
-c_uses_ws <- metrics %>% gs_read(ws = "Classroom Uses")
-gadp <- metrics %>% gs_read(ws = "Google analytics Data Portal")
+c_uses_ws <- read_excel(cached_metrics_file, sheet = "Classroom Uses")
+gadp <- read_excel(cached_metrics_file, sheet = "Google analytics Data Portal")
+gadp$`Pages/Session` <- as.numeric(as.character(gadp$`Pages/Session`))
+#The column labelled "Average Session Duration (minutes)" gets screwed up
+#for two reasons: 1) The colon separating minutes and seconds is misinterpreted
+#when importing into R. 2) The parentheses from the column header are 
+#silently dropped.
 
 pitt_uses <- nrow(c_uses_ws[c_uses_ws$Institution == "Pitt",])
 cmu_uses <- nrow(c_uses_ws[grep("CMU",c_uses_ws$Institution),])
@@ -318,7 +325,7 @@ classroom_uses <- nrow(c_uses_ws)
 
 df_uses <- categorize_class_uses(c_uses_ws)
 
-other_web_stats <- metrics %>% gs_read(ws = "Other Web Stats")
+other_web_stats <- read_excel(cached_metrics_file, sheet = "Other Web Stats")
 other_web_stats <- other_web_stats[-c(4,5),] # Eliminating rows 3 and 4 (which 
 # do not contain one month of data) and any rows that contain NA values.
 publishers <- other_web_stats[,(names(other_web_stats) %in% 
@@ -326,8 +333,9 @@ publishers <- other_web_stats[,(names(other_web_stats) %in%
                                     "Government Publishers","Non-Profit Publishers",
                                     "Other Publishers"))]
 
-media_mentions <- nrow(metrics %>% gs_read(ws = "Media")) - 1
-outreach_events_table <- metrics %>% gs_read(ws = "Project Outreach & Events")
+media <- read_excel(cached_metrics_file, sheet = "Media")
+media_mentions <- nrow(media) - 1
+outreach_events_table <- read_excel(cached_metrics_file, sheet = "Project Outreach & Events")
 outreach_and_events <- nrow(outreach_events_table) - 1
 outreach_fields <- outreach_events_table[1,]
 colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
@@ -335,8 +343,8 @@ outreach_events_table <- outreach_events_table[-c(1),]
 
 recent_events <- within_n_days_of(outreach_events_table,90,today)
 
-ga_site_stats <- na.omit(gadp[-c(3,4),]) # Eliminating rows 3 and 4 (which 
-# do not contain one month of data) and any rows that contain NA values.
+ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which 
+# do not contain one month of data).
 new_percentage <- ga_site_stats$'New Users'/100
 users <- ga_site_stats$Users
 
