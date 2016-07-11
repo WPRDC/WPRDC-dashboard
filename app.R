@@ -278,12 +278,14 @@ if(production) {
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
 cached_metrics_file = "tmp/cached_metrics_sheet.xlsx"
-if(production) {
-  googlesheets::gs_auth(token = "shiny_app_token.rds")
+if (!file.exists(cached_metrics_file)) {
+  if(production) {
+    googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
+  }
+  metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
+  metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
 }
-metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
-  
+
 site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
 site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
 site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
