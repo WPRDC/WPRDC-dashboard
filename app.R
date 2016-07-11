@@ -348,8 +348,29 @@ outreach_and_events <- nrow(outreach_events_table) - 1
 outreach_fields <- outreach_events_table[1,]
 colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
 outreach_events_table <- outreach_events_table[-c(1),]
+# Due to a known deficiency in R and readxl (and really Excel 
+# for being weird about forcing dates to become datetimes), the 
+# first column of the Project Outreach & Events database, which 
+# should look like
+#   10/15/15
+#   10/15/15
+#   10/16/15
+# instead looks like
+#   42292.0
+#   42292.0
+#   42293.0
+# where that number is the number of days since January 1, 1900.
+# That is, October 15th is the 288th day of 2015, and
+# (2015-1900)*365.25+288 = 42292, though it does seem to
+# incorrectly assume that 1900 is a leap year, and there's one other
+# day unaccounted for in there.
 
-recent_events <- within_n_days_of(outreach_events_table,90,today)
+#outreach_events_table$Date <- as.Date(outreach_events_table$Date,as.Date("1899-12-30"))
+#recent_events <- within_n_days_of(outreach_events_table,90,today)
+outreach_events_table$Date <- as.numeric(outreach_events_table$Date)
+day_number <- difftime(Sys.Date() , as.Date("1900-01-01"), units = c("days"))+2
+recent_events <- outreach_events_table[(day_number-as.numeric(outreach_events_table$Date)) <= 90,]
+
 
 ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which 
 # do not contain one month of data).
@@ -402,8 +423,10 @@ ui <- shinyUI(fluidPage(
                   h4("Media mentions: ", media_mentions),
                   HTML("<hr>"),
                   h4("Total outreach instances & events: ", outreach_and_events),
-                  HTML("<center style='font-size:140%'>Breakdown of outreach/events</center>"),
-                  plotOutput("event_types_plot"))
+                  HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
+                  fluidRow(
+                    splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
+                  ))
       )
     )
   )
@@ -434,6 +457,10 @@ server <- shinyServer(function(input, output) {
    output$event_types_plot = renderPlot({
      dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#ff3300"))
+   })
+   output$recent_event_types_plot = renderPlot({
+     dotchart(sort(table(recent_events$Type),decreasing=FALSE),
+              las=1,xlab="Count",col=c("#0033ff"))
    })
 })
 
