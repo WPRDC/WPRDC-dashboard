@@ -341,6 +341,23 @@ publishers <- other_web_stats[,(names(other_web_stats) %in%
                                     "Government Publishers","Non-Profit Publishers",
                                     "Other Publishers"))]
 
+etl_process_count <- other_web_stats[,(names(other_web_stats) %in% 
+                                  c("Data with Automated ETL (Non GIS)"))]
+etl_processes <- other_web_stats[,(names(other_web_stats) %in% 
+                                         c("Date","Data with Automated ETL (Non GIS)",
+                                           "Automated ETL list"))]
+etl_processes <- etl_processes[-c(1),]
+
+misc_other_stats <- other_web_stats[,(names(other_web_stats) %in% 
+                                     c("Date","Discussion Posts",
+                                       "CKAN data requests"))]
+misc_other_stats <- misc_other_stats[-c(1),]
+misc_other_stats[,2:3] <- sapply(misc_other_stats[, 2:3], as.integer)
+
+social_media <- read_excel(cached_metrics_file, sheet = "Social Media")
+social_media <- social_media[-c(3,4),]
+twitter_followers <- social_media[,(names(social_media) %in% c("Period","Twitter Followers, End of period"))]
+
 media <- read_excel(cached_metrics_file, sheet = "Media")
 media_mentions <- nrow(media) - 1
 outreach_events_table <- read_excel(cached_metrics_file, sheet = "Project Outreach & Events")
@@ -412,7 +429,10 @@ ui <- shinyUI(fluidPage(
         # Show a plot of the generated distribution
 #         h2("Cumulative statistics"),
 #h2('Download stats'),
-         tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers')),
+         tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers'),
+                  dataTableOutput('etl'),
+                  dataTableOutput('misc')
+                  ),
          tabPanel("File downloads",dataTableOutput('downloads_table')),
          tabPanel("Package downloads",dataTableOutput('by_package')),
          tabPanel("Classroom uses", 
@@ -420,13 +440,15 @@ ui <- shinyUI(fluidPage(
                   HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
                              classroom_uses, pitt_uses, cmu_uses))),
          tabPanel("Outreach",
-                  h4("Media mentions: ", media_mentions),
                   HTML("<hr>"),
+                  h4("Media mentions: ", media_mentions),
+                  dataTableOutput('twitter_followers'),
                   h4("Total outreach instances & events: ", outreach_and_events),
                   HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
                   fluidRow(
                     splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
-                  ))
+                  )
+                  )
       )
     )
   )
@@ -453,6 +475,15 @@ server <- shinyServer(function(input, output) {
    },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
    output$publishers = renderDataTable({
      publishers
+   })
+   output$etl = renderDataTable({
+     etl_processes
+   })
+   output$misc = renderDataTable({
+     misc_other_stats
+   })
+   output$twitter_followers = renderDataTable({
+     twitter_followers
    })
    output$event_types_plot = renderPlot({
      dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
