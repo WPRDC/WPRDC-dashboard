@@ -268,10 +268,11 @@ within_n_days_of <- function(df,n,last_date) {
 source("wprdc_profile.R") # Look up the sheet_key to access
 # the Google Docs spreadsheet.
 source("authentication.R") # Look up the p_Id, client ID, and client
-# secret to access the Google Analytics account.
+# secret to access the Google Analytics account. Also determine the
+# value of the production variable, which sets whether this is a
+# production or development environment.
 
 today <- Sys.Date()
-production <- FALSE
 if(production) {
   setwd("/srv/shiny-server/WPRDC")
 }
