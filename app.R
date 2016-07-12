@@ -222,7 +222,7 @@ if(production) {
 }
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
-cached_metrics_file = "tmp/cached_metrics_sheet.xlsx"
+cached_metrics_file = "cached_metrics_sheet.xlsx"
 if(production) {
   googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
 }
