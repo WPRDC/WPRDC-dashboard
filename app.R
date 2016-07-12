@@ -207,14 +207,9 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-source("get_data.R")
-
-source("wprdc_profile.R") # Look up the sheet_key to access
+source("get_data.R") # Load all the functions that get 
+# Google Analytics data and the sheet_key use to access
 # the Google Docs spreadsheet.
-source("authentication.R") # Look up the p_Id, client ID, and client
-# secret to access the Google Analytics account. Also determine the
-# value of the production variable, which sets whether this is a
-# production or development environment.
 
 today <- Sys.Date()
 if(production) {

@@ -1,4 +1,7 @@
-source("authentication.R")
+source("authentication.R") # Look up the p_Id, client ID, and client
+# secret to access the Google Analytics account. Also determine the
+# value of the production variable, which sets whether this is a
+# production or development environment.
 
 get_month_stats <- function(year,month,p_Id) {
   # Given a particular month, year, and Google Analytics profile ID,
@@ -56,3 +59,4 @@ get_API_requests <- function(start_date="30daysAgo",end_date="yesterday",
   return(API_requests)
 }
 
+  
