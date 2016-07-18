@@ -212,6 +212,7 @@ source("get_data.R") # Load all the functions that get
 # the Google Docs spreadsheet.
 
 today <- Sys.Date()
+yesterday <- today - days(x=1)
 if(production) {
   setwd("/srv/shiny-server/WPRDC")
 }
@@ -234,8 +235,10 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # Add these to the spreadsheet as a "year_month" column to search for.
 
 API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+#API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
 downloads_per_month <- reduce_to_downloads(API_requests_month)
 all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+#all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
 all_downloads <- reduce_to_downloads(all_API_requests)
 
 df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
@@ -332,6 +335,9 @@ ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which
 new_percentage <- ga_site_stats$'New Users'/100
 users <- ga_site_stats$Users
 
+users <- site_stats$users
+month_list <- month.abb[site_stats$month]
+
 ui <- shinyUI(fluidPage(
   tags$head(tags$style(
     HTML('
@@ -378,9 +384,9 @@ ui <- shinyUI(fluidPage(
                   HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
                              classroom_uses, pitt_uses, cmu_uses))),
          tabPanel("Outreach",
-                  HTML("<hr>"),
                   h4("Media mentions: ", media_mentions),
                   dataTableOutput('twitter_followers'),
+                  HTML("<hr>"),
                   h4("Total outreach instances & events: ", outreach_and_events),
                   HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
                   fluidRow(
@@ -395,8 +401,12 @@ ui <- shinyUI(fluidPage(
 # Define server logic required to render the output
 server <- shinyServer(function(input, output) {
    
+#   output$userPlot <- renderPlot({
+#     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
+#             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+#   })
    output$userPlot <- renderPlot({
-     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
+     barplot(users,names.arg=month_list,ylab="Users",xlab="Month",
              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
    })
    output$analytics_table = renderDataTable({
