@@ -36,7 +36,7 @@ class_key <- function(x,y) {
   key <- paste(x,y,sep=";")
   return(key)
 }
- 
+
 categorize_class_uses <- function(df) {
   # Return a data frame that counts number of uses of the Data Center
   # by semester and school. 
@@ -50,7 +50,7 @@ categorize_class_uses <- function(df) {
   # to use a vectorized/functional approach, like:
   #    apply(c_uses_ws,1,categorize)
   # but I'm using a for loop for now.
-
+  
   uses_by_term <- hash()
   insts <- c()
   ts <- c()
@@ -85,7 +85,7 @@ categorize_class_uses <- function(df) {
         counts <- append(counts,u)
     }
   }
-    
+  
   df_out <- data.frame(term = term_column, institution = inst_column, count = counts)
   return(df_out)
 }
@@ -105,12 +105,12 @@ name_datasets <- function(df) {
   # the Google Analytics statistics (which are listed by resource ID).
   json_file <- "https://data.wprdc.org/api/3/action/current_package_list_with_resources?limit=9999"
   json_data <- fromJSON(json_file)
-
+  
   for(j in 1:nrow(json_data$result)) {
     package <- json_data$result[j,]
-#    if(!is.na(package$num_resources)) {
-#      count <- count + as.numeric(package$num_resources)
-#    } # ==> count = 607
+    #    if(!is.na(package$num_resources)) {
+    #      count <- count + as.numeric(package$num_resources)
+    #    } # ==> count = 607
     
     for(k in 1:length(package$resources[[1]]$id)) {
       resources <- package$resources[[1]]
@@ -130,10 +130,10 @@ name_datasets <- function(df) {
         } else {
           resource_map <- rbind(resource_map, 
                                 c(package$title,
-                                dataset,
-                                package$organization$title,
-                                resources$id[[k]],
-                                resources$package_id[[k]]))
+                                  dataset,
+                                  package$organization$title,
+                                  resources$id[[k]],
+                                  resources$package_id[[k]]))
         }
       }
     }
@@ -177,21 +177,21 @@ group_by_package <- function(df) {
     dl_all_unique <- sum(matched_rows$"All-time unique downloads")
     if(k == 1) {
       grouped <- data_frame(Package=c(matched_rows$Package[[1]]),
-                                 Organization=c(matched_rows$Organization[[1]]),
-                                 "1-month downloads"=as.numeric(c(dl_1)),
-                                 "1-month unique downloads"=c(dl_1_unique),
-                                 "All-time downloads"=c(dl_all),
-                                 "All-time unique downloads"=c(dl_all_unique),
-                                 Resources=c(nrow(matched_rows)))
+                            Organization=c(matched_rows$Organization[[1]]),
+                            "1-month downloads"=as.numeric(c(dl_1)),
+                            "1-month unique downloads"=c(dl_1_unique),
+                            "All-time downloads"=c(dl_all),
+                            "All-time unique downloads"=c(dl_all_unique),
+                            Resources=c(nrow(matched_rows)))
     } else {
       grouped <- rbind(grouped, 
-                            c(matched_rows$Package[[1]],
-                              matched_rows$Organization[[1]],
-                              dl_1,
-                              dl_1_unique,
-                              dl_all,
-                              dl_all_unique,
-                              nrow(matched_rows)))
+                       c(matched_rows$Package[[1]],
+                         matched_rows$Organization[[1]],
+                         dl_1,
+                         dl_1_unique,
+                         dl_all,
+                         dl_all_unique,
+                         nrow(matched_rows)))
     }
   }
   grouped$`1-month downloads` <- as.numeric(grouped$`1-month downloads`)
@@ -207,23 +207,31 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-source("get_data.R") # Load all the functions that get 
-# Google Analytics data and the sheet_key use to access
-# the Google Docs spreadsheet.
+cached_mode <- TRUE
+
+if(!cached_mode) {
+  source("get_data.R") # Load all the functions that get 
+  # Google Analytics data and the sheet_key use to access
+  # the Google Docs spreadsheet.
+}
 
 today <- Sys.Date()
 yesterday <- today - days(x=1)
-if(production) {
-  setwd("/srv/shiny-server/WPRDC")
+if(!cached_mode) {
+  if(production) {
+    setwd("/srv/shiny-server/WPRDC")
+  }
 }
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
 cached_metrics_file = "cached_metrics_sheet.xlsx"
-if(production) {
-  googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
+if(!cached_mode) {
+  if(production) {
+    googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
+  }
+  metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
+  metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
 }
-metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
 
 site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
 site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
@@ -234,17 +242,35 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
-API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
-#API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
-downloads_per_month <- reduce_to_downloads(API_requests_month)
-all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
-#all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
-all_downloads <- reduce_to_downloads(all_API_requests)
+if((!cached_mode)|(!file.exists("df_downloads.csv"))
+                 |(!file.exists("downloads_by_package.csv"))) {
+  API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+  #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
+  downloads_per_month <- reduce_to_downloads(API_requests_month)
+  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+  #all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
+  all_downloads <- reduce_to_downloads(all_API_requests)
 
-df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
-df_downloads <- name_datasets(df_downloads)
-df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
-downloads_by_package <- group_by_package(df_downloads)
+  df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
+  df_downloads <- name_datasets(df_downloads)
+  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
+  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
+  downloads_by_package <- group_by_package(df_downloads)
+  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
+} else {
+  df_downloads <- read.csv("df_downloads.csv")
+  df_downloads <- rename(df_downloads, 
+                                 c("X1.month.downloads"="1-month downloads", 
+                                   "X1.month.unique.downloads"="1-month unique downloads", 
+                                   "All.time.downloads"="All-time downloads", 
+                                   "All.time.unique.downloads"="All-time unique downloads"))
+  downloads_by_package <- read.csv("downloads_by_package.csv")
+  downloads_by_package <- rename(downloads_by_package, 
+                                 c("X1.month.downloads"="1-month downloads", 
+                                   "X1.month.unique.downloads"="1-month unique downloads", 
+                                   "All.time.downloads"="All-time downloads", 
+                                   "All.time.unique.downloads"="All-time unique downloads"))
+}
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
 # When RGA samples a metric every day (using the fetch.by = "day" option), 
@@ -283,15 +309,15 @@ publishers <- other_web_stats[,(names(other_web_stats) %in%
                                     "Other Publishers"))]
 
 etl_process_count <- other_web_stats[,(names(other_web_stats) %in% 
-                                  c("Data with Automated ETL (Non GIS)"))]
+                                         c("Data with Automated ETL (Non GIS)"))]
 etl_processes <- other_web_stats[,(names(other_web_stats) %in% 
-                                         c("Date","Data with Automated ETL (Non GIS)",
-                                           "Automated ETL list"))]
+                                     c("Date","Data with Automated ETL (Non GIS)",
+                                       "Automated ETL list"))]
 etl_processes <- etl_processes[-c(1),]
 
 misc_other_stats <- other_web_stats[,(names(other_web_stats) %in% 
-                                     c("Date","Discussion Posts",
-                                       "CKAN data requests"))]
+                                        c("Date","Discussion Posts",
+                                          "CKAN data requests"))]
 misc_other_stats <- misc_other_stats[-c(1),]
 misc_other_stats[,2:3] <- sapply(misc_other_stats[, 2:3], as.integer)
 
@@ -337,110 +363,111 @@ users <- ga_site_stats$Users
 
 users <- site_stats$users
 month_list <- month.abb[site_stats$month]
+month_list <- paste(month.abb[site_stats$month],site_stats$year,"")
 
 ui <- shinyUI(fluidPage(
   tags$head(tags$style(
     HTML('
          #sidebar {
-            background-color: #000;
-            color: white;
+         background-color: #000;
+         color: white;
          }
-
-        body, label, input, button, select { 
-          font-family: Optima,"Lucida Grande",Tahoma;
-        }')
+         
+         body, label, input, button, select { 
+         font-family: Optima,"Lucida Grande",Tahoma;
+         }')
   )),
-   # Application title
-   titlePanel("",windowTitle = "Data Center Metrics"),
-   
-    mainPanel(
-      HTML("<div style='background-color:white;float:left;color:black;
-           width:100%;margin:0;padding:0;left:0;
-           font-size:200%'>Data Center Metrics"),
-      HTML("<span style='float:right'>"),
-      img(src="images/small-WPRDC-logo-inverted.png"),
-      HTML("</span>"),
-       # Shiny R wants all images and JavaScript and stuff to be nested in a
-       # folder called "www" which is in the same directory as app.R.
-       # So images would be in dashboard_folder/www/images/, but when 
-       # you call them, you drop the "www", e.g., img(src="images/z.png")
-      HTML("</div>"),
-       
-#            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
-
-      tabsetPanel(
-        tabPanel("Web stats",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
-        # Show a plot of the generated distribution
-#         h2("Cumulative statistics"),
-#h2('Download stats'),
-         tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers'),
-                  dataTableOutput('etl'),
-                  dataTableOutput('misc')
-                  ),
-         tabPanel("File downloads",dataTableOutput('downloads_table')),
-         tabPanel("Package downloads",dataTableOutput('by_package')),
-         tabPanel("Classroom uses", 
-                  dataTableOutput('uses_table'),
-                  HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
-                             classroom_uses, pitt_uses, cmu_uses))),
-         tabPanel("Outreach",
-                  h4("Media mentions: ", media_mentions),
-                  dataTableOutput('twitter_followers'),
-                  HTML("<hr>"),
-                  h4("Total outreach instances & events: ", outreach_and_events),
-                  HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
-                  fluidRow(
-                    splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
-                  )
-                  )
+  # Application title
+  titlePanel("",windowTitle = "Data Center Metrics"),
+  
+  mainPanel(
+    HTML("<div style='background-color:white;float:left;color:black;
+         width:100%;margin:0;padding:0;left:0;
+         font-size:200%'>Data Center Metrics"),
+    HTML("<span style='float:right'>"),
+    img(src="images/small-WPRDC-logo-inverted.png"),
+    HTML("</span>"),
+    # Shiny R wants all images and JavaScript and stuff to be nested in a
+    # folder called "www" which is in the same directory as app.R.
+    # So images would be in dashboard_folder/www/images/, but when 
+    # you call them, you drop the "www", e.g., img(src="images/z.png")
+    HTML("</div>"),
+    
+    #            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
+    
+    tabsetPanel(
+      tabPanel("Web stats",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
+      # Show a plot of the generated distribution
+      #         h2("Cumulative statistics"),
+      #h2('Download stats'),
+      tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers'),
+               dataTableOutput('etl'),
+               dataTableOutput('misc')
+      ),
+      tabPanel("File downloads",dataTableOutput('downloads_table')),
+      tabPanel("Package downloads",dataTableOutput('by_package')),
+      tabPanel("Classroom uses", 
+               dataTableOutput('uses_table'),
+               HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
+                            classroom_uses, pitt_uses, cmu_uses))),
+      tabPanel("Outreach",
+               h4("Media mentions: ", media_mentions),
+               dataTableOutput('twitter_followers'),
+               HTML("<hr>"),
+               h4("Total outreach instances & events: ", outreach_and_events),
+               HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
+               fluidRow(
+                 splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
+               )
       )
     )
+    )
   )
-)
+  )
 
 # Define server logic required to render the output
 server <- shinyServer(function(input, output) {
-   
-#   output$userPlot <- renderPlot({
-#     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
-#             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
-#   })
-   output$userPlot <- renderPlot({
-     barplot(users,names.arg=month_list,ylab="Users",xlab="Month",
-             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
-   })
-   output$analytics_table = renderDataTable({
-     site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
-   })
-   output$uses_table = renderDataTable({
-     df_uses
-   })
-   output$downloads_table = renderDataTable({
-     df_downloads[order(-df_downloads$"1-month downloads"),] 
-   })
-   output$by_package = renderDataTable({
-     downloads_by_package[order(-downloads_by_package$"1-month downloads"),] 
-   },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
-   output$publishers = renderDataTable({
-     publishers
-   })
-   output$etl = renderDataTable({
-     etl_processes
-   })
-   output$misc = renderDataTable({
-     misc_other_stats
-   })
-   output$twitter_followers = renderDataTable({
-     twitter_followers
-   })
-   output$event_types_plot = renderPlot({
-     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
+  
+  #   output$userPlot <- renderPlot({
+  #     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
+  #             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+  #   })
+  output$userPlot <- renderPlot({
+    barplot(users,names.arg=month_list,ylab="Users by Month",xlab="",
+            col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+  })
+  output$analytics_table = renderDataTable({
+    site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
+  })
+  output$uses_table = renderDataTable({
+    df_uses
+  })
+  output$downloads_table = renderDataTable({
+    df_downloads[order(-df_downloads$"1-month downloads"),] 
+  })
+  output$by_package = renderDataTable({
+    downloads_by_package[order(-downloads_by_package$"1-month downloads"),] 
+  },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
+  output$publishers = renderDataTable({
+    publishers
+  })
+  output$etl = renderDataTable({
+    etl_processes
+  })
+  output$misc = renderDataTable({
+    misc_other_stats
+  })
+  output$twitter_followers = renderDataTable({
+    twitter_followers
+  })
+  output$event_types_plot = renderPlot({
+    dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#ff3300"))
-   })
-   output$recent_event_types_plot = renderPlot({
-     dotchart(sort(table(recent_events$Type),decreasing=FALSE),
-              las=1,xlab="Count",col=c("#0033ff"))
-   })
+  })
+  output$recent_event_types_plot = renderPlot({
+    dotchart(sort(table(recent_events$Type),decreasing=FALSE),
+             las=1,xlab="Count",col=c("#0033ff"))
+  })
 })
 
 # Run the application 
