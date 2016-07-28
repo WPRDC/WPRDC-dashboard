@@ -20,6 +20,7 @@ library(googlesheets)
 library(readxl)
 
 suppressMessages(library(dplyr))
+library(plyr) # Loaded to use the rename function.
 library(httr)
 #library(RGoogleAnalytics)
 # Some online documentation for how to use RGoogleAnalytics is out of date.
@@ -238,6 +239,9 @@ site_stats$`average session duration (minutes)` <- site_stats$`average session d
 site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
 site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
 site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
+month_list <- paste(month.abb[site_stats$month],site_stats$year,sep=" ")
+numerical_month_list <- paste(site_stats$year,site_stats$month,sep="-")
+site_stats$year_month <- numerical_month_list
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
@@ -362,8 +366,6 @@ new_percentage <- ga_site_stats$'New Users'/100
 users <- ga_site_stats$Users
 
 users <- site_stats$users
-month_list <- month.abb[site_stats$month]
-month_list <- paste(month.abb[site_stats$month],site_stats$year,"")
 
 ui <- shinyUI(fluidPage(
   tags$head(tags$style(
@@ -380,7 +382,7 @@ ui <- shinyUI(fluidPage(
   # Application title
   titlePanel("",windowTitle = "Data Center Metrics"),
   
-  mainPanel(
+  fluidRow(
     HTML("<div style='background-color:white;float:left;color:black;
          width:100%;margin:0;padding:0;left:0;
          font-size:200%'>Data Center Metrics"),
@@ -396,7 +398,14 @@ ui <- shinyUI(fluidPage(
     #            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
     
     tabsetPanel(
-      tabPanel("Web stats",plotOutput("userPlot"),dataTableOutput('analytics_table')), 
+      tabPanel("Web stats",
+               fluidRow(column(8, align="right",plotOutput("plot1")),
+                        column(width = 2, wellPanel(
+                          radioButtons("plot_type", "Plot",
+                                       c("Users", "Sessions", "Pageviews")
+                          )))
+                        ),
+               dataTableOutput('analytics_table')), 
       # Show a plot of the generated distribution
       #         h2("Cumulative statistics"),
       #h2('Download stats'),
@@ -432,9 +441,20 @@ server <- shinyServer(function(input, output) {
   #     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
   #             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
   #   })
+  output$plot1 <- renderPlot({
+    if (input$plot_type == "Users") {
+      barplot(users,names.arg=month_list,ylab="Users by Month",xlab="",
+              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+    } else if (input$plot_type == "Sessions") {
+      barplot(site_stats$sessions,names.arg=month_list,ylab="Sessions by Month",xlab="",
+              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+    } else if (input$plot_type == "Pageviews") {
+      barplot(site_stats$pageviews,names.arg=month_list,ylab="Pageviews by Month",xlab="",
+              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+    }
+  })
   output$userPlot <- renderPlot({
-    barplot(users,names.arg=month_list,ylab="Users by Month",xlab="",
-            col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+
   })
   output$analytics_table = renderDataTable({
     site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
