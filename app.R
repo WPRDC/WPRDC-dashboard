@@ -19,6 +19,9 @@ library(googlesheets)
 # https://rawgit.com/jennybc/googlesheets/master/vignettes/basic-usage.html
 library(readxl)
 
+#sparklines:
+#http://bart6114.github.io/sparklines/
+
 suppressMessages(library(dplyr))
 library(plyr) # Loaded to use the rename function.
 library(httr)
@@ -121,20 +124,22 @@ name_datasets <- function(df) {
         } else {
           dataset <- resources$name[[k]]
         }
-        
+        package_url_path <- c(paste("/dataset/",package$name,sep=""))
         if(j*k == 1) {
           resource_map <- data_frame(Package=c(package$title),
                                      Dataset=c(dataset),
                                      Organization=c(package$organization$title),
                                      id=c(resources$id[[k]]),
-                                     package_id=c(resources$package_id[[k]]))
+                                     package_id=c(resources$package_id[[k]]),
+                                     package_path=package_url_path)
         } else {
           resource_map <- rbind(resource_map, 
                                 c(package$title,
                                   dataset,
                                   package$organization$title,
                                   resources$id[[k]],
-                                  resources$package_id[[k]]))
+                                  resources$package_id[[k]],
+                                  package_url_path))
         }
       }
     }
@@ -208,7 +213,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- TRUE
+cached_mode <- FALSE
 
 if(!cached_mode) {
   source("get_data.R") # Load all the functions that get 
