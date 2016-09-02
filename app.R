@@ -124,6 +124,14 @@ name_datasets <- function(df) {
         } else {
           dataset <- resources$name[[k]]
         }
+        if((length(resources$id) > 0)) {
+          if(is.na(resources$id[[k]])) {
+            resource_url_path <- "No resource path"
+          } else {
+            resource_url_path <- c(paste(package_url_path,"/resource/",
+                                         resources$id[[k]],sep=""))
+          }
+        }
         package_url_path <- c(paste("/dataset/",package$name,sep=""))
         if(j*k == 1) {
           resource_map <- data_frame(Package=c(package$title),
@@ -131,7 +139,8 @@ name_datasets <- function(df) {
                                      Organization=c(package$organization$title),
                                      id=c(resources$id[[k]]),
                                      package_id=c(resources$package_id[[k]]),
-                                     package_path=package_url_path)
+                                     package_path=c(package_url_path),
+                                     resource_path=c(resource_url_path))
         } else {
           resource_map <- rbind(resource_map, 
                                 c(package$title,
@@ -139,7 +148,8 @@ name_datasets <- function(df) {
                                   package$organization$title,
                                   resources$id[[k]],
                                   resources$package_id[[k]],
-                                  package_url_path))
+                                  package_url_path,
+                                  resource_url_path))
         }
       }
     }
@@ -188,7 +198,8 @@ group_by_package <- function(df) {
                             "1-month unique downloads"=c(dl_1_unique),
                             "All-time downloads"=c(dl_all),
                             "All-time unique downloads"=c(dl_all_unique),
-                            Resources=c(nrow(matched_rows)))
+                            Resources=c(nrow(matched_rows)),
+                            package_path=c(matched_rows$package_path[[1]]))
     } else {
       grouped <- rbind(grouped, 
                        c(matched_rows$Package[[1]],
@@ -197,7 +208,8 @@ group_by_package <- function(df) {
                          dl_1_unique,
                          dl_all,
                          dl_all_unique,
-                         nrow(matched_rows)))
+                         nrow(matched_rows),
+                         matched_rows$package_path[[1]]))
     }
   }
   grouped$`1-month downloads` <- as.numeric(grouped$`1-month downloads`)
@@ -213,7 +225,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- FALSE
+cached_mode <- TRUE
 
 if(!cached_mode) {
   source("get_data.R") # Load all the functions that get 
@@ -251,8 +263,8 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
-if((!cached_mode)|(!file.exists("df_downloads.csv"))
-                 |(!file.exists("downloads_by_package.csv"))) {
+if((!cached_mode)|(!file.exists("df_downloads_and_pageviews.csv"))
+                 |(!file.exists("package_downloads_and_pageviews.csv"))) {
   API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
   #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
   downloads_per_month <- reduce_to_downloads(API_requests_month)
@@ -263,22 +275,69 @@ if((!cached_mode)|(!file.exists("df_downloads.csv"))
   df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
   df_downloads <- name_datasets(df_downloads)
   df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
-  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
+  df_pageviews_month <- get_pageviews("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+  df_pageviews_all <- get_pageviews("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+  df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
+                                      by.x="resource_path",by.y="pagePath")
+  df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
+                         c("pageviews"="1-month pageviews"))
+  df_downloads_and_pageviews <- merge(df_downloads_and_pageviews,df_pageviews_all,
+                                      by.x="resource_path",by.y="pagePath")
+  df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
+                                       c("pageviews"="All-time pageviews"))
+  df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
+                                                             "Organization",
+                                                             "1-month downloads",
+                                                             "1-month unique downloads",
+                                                             "1-month pageviews",
+                                                             "All-time downloads",
+                                                             "All-time unique downloads",
+                                                             "All-time pageviews")]
+  
+#  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
+  write.csv(df_downloads_and_pageviews, "df_downloads_and_pageviews.csv", row.names=FALSE)
+  
   downloads_by_package <- group_by_package(df_downloads)
-  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
+  package_downloads_and_pageviews <- merge(downloads_by_package,df_pageviews_month,
+                                      by.x="package_path",by.y="pagePath")
+  package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
+                                       c("pageviews"="1-month pageviews"))
+  package_downloads_and_pageviews <- merge(package_downloads_and_pageviews,df_pageviews_all,
+                                           by.x="package_path",by.y="pagePath")
+  package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
+                                            c("pageviews"="All-time pageviews"))
+  
+  package_downloads_and_pageviews <- package_downloads_and_pageviews[c("Package",
+                                                             "Organization",
+                                                             "1-month downloads",
+                                                             "1-month unique downloads",
+                                                             "1-month pageviews",
+                                                             "All-time downloads",
+                                                             "All-time unique downloads",
+                                                             "All-time pageviews",
+                                                             "Resources")]
+  
+  
+#  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
+  write.csv(package_downloads_and_pageviews, "package_downloads_and_pageviews.csv", row.names=FALSE)
 } else {
-  df_downloads <- read.csv("df_downloads.csv")
-  df_downloads <- rename(df_downloads, 
+  df_downloads_and_pageviews <- read.csv("df_downloads_and_pageviews.csv")
+  df_downloads_and_pageviews <- rename(df_downloads_and_pageviews, 
                                  c("X1.month.downloads"="1-month downloads", 
                                    "X1.month.unique.downloads"="1-month unique downloads", 
+                                   "X1.month.pageviews"="1-month pageviews", 
                                    "All.time.downloads"="All-time downloads", 
-                                   "All.time.unique.downloads"="All-time unique downloads"))
-  downloads_by_package <- read.csv("downloads_by_package.csv")
-  downloads_by_package <- rename(downloads_by_package, 
+                                   "All.time.unique.downloads"="All-time unique downloads",
+                                   "All.time.pageviews"="All-time pageviews"))
+  
+  package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
+  package_downloads_and_pageviews <- rename(package_downloads_and_pageviews, 
                                  c("X1.month.downloads"="1-month downloads", 
                                    "X1.month.unique.downloads"="1-month unique downloads", 
+                                   "X1.month.pageviews"="1-month pageviews", 
                                    "All.time.downloads"="All-time downloads", 
-                                   "All.time.unique.downloads"="All-time unique downloads"))
+                                   "All.time.unique.downloads"="All-time unique downloads",
+                                   "All.time.pageviews"="All-time pageviews"))
 }
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
@@ -418,8 +477,8 @@ ui <- shinyUI(fluidPage(
                dataTableOutput('etl'),
                dataTableOutput('misc')
       ),
-      tabPanel("File downloads",dataTableOutput('downloads_table')),
-      tabPanel("Package downloads",dataTableOutput('by_package')),
+      tabPanel("Dataset stats",dataTableOutput('downloads_table')),
+      tabPanel("Package stats",dataTableOutput('by_package')),
       tabPanel("Classroom uses", 
                dataTableOutput('uses_table'),
                HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
@@ -468,10 +527,10 @@ server <- shinyServer(function(input, output) {
     df_uses
   })
   output$downloads_table = renderDataTable({
-    df_downloads[order(-df_downloads$"1-month downloads"),] 
+    df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),] 
   })
   output$by_package = renderDataTable({
-    downloads_by_package[order(-downloads_by_package$"1-month downloads"),] 
+    package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),] 
   },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
   output$publishers = renderDataTable({
     publishers
