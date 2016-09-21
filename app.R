@@ -110,69 +110,81 @@ name_datasets <- function(df) {
   json_file <- "https://data.wprdc.org/api/3/action/current_package_list_with_resources?limit=9999"
   json_data <- fromJSON(json_file)
   
-  for(j in 1:nrow(json_data$result)) {
-    package <- json_data$result[j,]
-    #    if(!is.na(package$num_resources)) {
-    #      count <- count + as.numeric(package$num_resources)
-    #    } # ==> count = 607
+  cached_resource_map_file <- "cached_resource_map.csv"
+  
+  result_df <- json_data$result
+  
+  if(exists("json_data")) {
     
-    for(k in 1:length(package$resources[[1]]$id)) {
-      resources <- package$resources[[1]]
-      if((length(resources$name) > 0)) {
-        if(is.na(resources$name[[k]])) {
-          dataset <- "Unnamed resource"
-        } else {
-          dataset <- resources$name[[k]]
-        }
-        if((length(resources$id) > 0)) {
-          if(is.na(resources$id[[k]])) {
-            resource_url_path <- "No resource path"
+    for(j in 1:nrow(result_df)) {
+      package <- result_df[j,]
+      #    if(!is.na(package$num_resources)) {
+      #      count <- count + as.numeric(package$num_resources)
+      #    } # ==> count = 607
+      
+      for(k in 1:length(package$resources[[1]]$id)) {
+        resources <- package$resources[[1]]
+        if((length(resources$name) > 0)) {
+          if(is.na(resources$name[[k]])) {
+            dataset <- "Unnamed resource"
           } else {
-            resource_url_path <- c(paste(package_url_path,"/resource/",
-                                         resources$id[[k]],sep=""))
+            dataset <- resources$name[[k]]
           }
-        }
-        package_url_path <- c(paste("/dataset/",package$name,sep=""))
-        if(j*k == 1) {
-          resource_map <- data_frame(Package=c(package$title),
-                                     Dataset=c(dataset),
-                                     Organization=c(package$organization$title),
-                                     id=c(resources$id[[k]]),
-                                     package_id=c(resources$package_id[[k]]),
-                                     package_path=c(package_url_path),
-                                     resource_path=c(resource_url_path))
-        } else {
-          resource_map <- rbind(resource_map, 
-                                c(package$title,
-                                  dataset,
-                                  package$organization$title,
-                                  resources$id[[k]],
-                                  resources$package_id[[k]],
-                                  package_url_path,
-                                  resource_url_path))
+          package_url_path <- c(paste("/dataset/",package$name,sep=""))
+          if((length(resources$id) > 0)) {
+            if(is.na(resources$id[[k]]) | !exists("package_url_path")) {
+              resource_url_path <- "No resource path"
+            } else {
+              resource_url_path <- c(paste(package_url_path,"/resource/",
+                                           resources$id[[k]],sep=""))
+            }
+          }
+          if(j*k == 1) {
+            resource_map <- data_frame(Package=c(package$title),
+                                       Dataset=c(dataset),
+                                       Organization=c(package$organization$title),
+                                       id=c(resources$id[[k]]),
+                                       package_id=c(resources$package_id[[k]]),
+                                       package_path=c(package_url_path),
+                                       resource_path=c(resource_url_path))
+          } else {
+            resource_map <- rbind(resource_map, 
+                                  c(package$title,
+                                    dataset,
+                                    package$organization$title,
+                                    resources$id[[k]],
+                                    resources$package_id[[k]],
+                                    package_url_path,
+                                    resource_url_path))
+          }
         }
       }
     }
-  }
-  
-  # The next part could probably more simply be done with the merge function.
-  resource_map$"1-month downloads" <- 0
-  resource_map$"1-month unique downloads" <- 0
-  resource_map$"All-time downloads" <- 0
-  resource_map$"All-time unique downloads" <- 0
-  for(i in 1:nrow(resource_map)) {
-    if(resource_map$id[[i]] %in% df$eventLabel){
-      matched_row <- df[df$eventLabel == resource_map$id[[i]],]
-      resource_map$"1-month downloads"[[i]] <- matched_row$totalEvents.x
-      resource_map$"1-month unique downloads"[[i]] <- matched_row$uniqueEvents.x
-      resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
-      resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
-    } else {
-      resource_map$"1-month downloads"[[i]] <- 0
-      resource_map$"1-month unique downloads"[[i]] <- 0
-      resource_map$"All-time downloads"[[i]] <- 0
-      resource_map$"All-time unique downloads"[[i]] <- 0
+    
+    # The next part could probably more simply be done with the merge function.
+    resource_map$"1-month downloads" <- 0
+    resource_map$"1-month unique downloads" <- 0
+    resource_map$"All-time downloads" <- 0
+    resource_map$"All-time unique downloads" <- 0
+    for(i in 1:nrow(resource_map)) {
+      if(resource_map$id[[i]] %in% df$eventLabel){
+        matched_row <- df[df$eventLabel == resource_map$id[[i]],]
+        resource_map$"1-month downloads"[[i]] <- matched_row$totalEvents.x
+        resource_map$"1-month unique downloads"[[i]] <- matched_row$uniqueEvents.x
+        resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
+        resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
+      } else {
+        resource_map$"1-month downloads"[[i]] <- 0
+        resource_map$"1-month unique downloads"[[i]] <- 0
+        resource_map$"All-time downloads"[[i]] <- 0
+        resource_map$"All-time unique downloads"[[i]] <- 0
+      }
     }
+    write.csv(resource_map, cached_resource_map_file)
+  } else if(file.exists(cached_resource_map_file)) {
+    resource_map <- read.csv(cached_resource_map_file)
+  } else {
+    resource_map <- data.frame()
   }
   return(resource_map)
 }
@@ -225,7 +237,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- TRUE
+cached_mode <- FALSE
 
 if(!cached_mode) {
   source("get_data.R") # Load all the functions that get 
@@ -237,7 +249,9 @@ today <- Sys.Date()
 yesterday <- today - days(x=1)
 if(!cached_mode) {
   if(production) {
-    setwd("/srv/shiny-server/WPRDC")
+    if(file.exists("/srv/shiny-server/WPRDC")) {
+      setwd("/srv/shiny-server/WPRDC")
+    }
   }
 }
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
@@ -247,8 +261,13 @@ if(!cached_mode) {
   if(production) {
     googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
   }
+  if(exists("metrics")) {
+    rm(metrics)
+  }
   metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-  metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
+  if(exists("metrics")) {
+    metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
+  }
 }
 
 site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
@@ -263,20 +282,37 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
-if((!cached_mode)|(!file.exists("df_downloads_and_pageviews.csv"))
-                 |(!file.exists("package_downloads_and_pageviews.csv"))) {
-  API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+refresh_download_data <- FALSE
+if(!file.exists("df_downloads_and_pageviews.csv")) {
+  refresh_download_data <- TRUE
+} else if (!file.exists("package_downloads_and_pageviews.csv")) {
+  refresh_download_data <- TRUE
+} else if(!cached_mode) {
+  if(Sys.time()-dminutes(15) > c(file.info("df_downloads_and_pageviews.csv")$mtime)) {
+    refresh_download_data <- TRUE
+  }
+  if(Sys.time()-dminutes(15) > c(file.info("package_downloads_and_pageviews.csv")$mtime)) {
+    refresh_download_data <- TRUE
+  }
+}
+
+if(refresh_download_data) {
+  API_requests_month <- get_API_requests_gar(today-days(x=30),yesterday,p_Id,production)
+  #  API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
   #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
   downloads_per_month <- reduce_to_downloads(API_requests_month)
-  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+  all_API_requests <- get_API_requests_gar("2015-10-15",yesterday,p_Id,production)
+#  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
   #all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
   all_downloads <- reduce_to_downloads(all_API_requests)
 
   df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
   df_downloads <- name_datasets(df_downloads)
   df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
-  df_pageviews_month <- get_pageviews("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
-  df_pageviews_all <- get_pageviews("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
+  df_pageviews_month <- get_pageviews_gar(today-days(x=30),yesterday,p_Id,production)
+#  df_pageviews_month <- get_pageviews("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
+  df_pageviews_all <- get_pageviews_gar("2015-10-15",yesterday,p_Id,production)
+#  df_pageviews_all <- get_pageviews("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
   df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
@@ -473,9 +509,9 @@ ui <- shinyUI(fluidPage(
       # Show a plot of the generated distribution
       #         h2("Cumulative statistics"),
       #h2('Download stats'),
-      tabPanel("Other web stats",h2("Publishers"),dataTableOutput('publishers'),
-               dataTableOutput('etl'),
-               dataTableOutput('misc')
+      tabPanel("Other web stats",h3("Publishers"),dataTableOutput('publishers'),
+               h3("ETL Processes"),dataTableOutput('etl'),
+               h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
       tabPanel("Dataset stats",dataTableOutput('downloads_table')),
       tabPanel("Package stats",dataTableOutput('by_package')),
