@@ -95,10 +95,11 @@ categorize_class_uses <- function(df) {
 }
 
 
-reduce_to_downloads <- function(df) {
+reduce_to_category <- function(df,category) {
   # Takes the result from get_API_requests, filters down to only the resource
-  # downloads, and eliminates the then-unneeded "eventCategory" column.
-  df <- df[df$eventCategory=="CKAN Resource Download Request",]
+  # downloads (or the API calls, depending on the category-name string passed
+  # to the function), and eliminates the then-unneeded "eventCategory" column.
+  df <- df[df$eventCategory==category,]
   df <- df[,!(names(df) %in% c("eventCategory"))]
   return(df)
 }
@@ -164,20 +165,38 @@ name_datasets <- function(df) {
     # The next part could probably more simply be done with the merge function.
     resource_map$"1-month downloads" <- 0
     resource_map$"1-month unique downloads" <- 0
+    if(include_API_calls) {
+      resource_map$"1-month API calls" <- 0
+    }
     resource_map$"All-time downloads" <- 0
     resource_map$"All-time unique downloads" <- 0
+    if(include_API_calls) {
+      resource_map$"All-time API calls" <- 0
+    }
     for(i in 1:nrow(resource_map)) {
       if(resource_map$id[[i]] %in% df$eventLabel){
         matched_row <- df[df$eventLabel == resource_map$id[[i]],]
         resource_map$"1-month downloads"[[i]] <- matched_row$totalEvents.x
         resource_map$"1-month unique downloads"[[i]] <- matched_row$uniqueEvents.x
+        if(include_API_calls) {
+          resource_map$"1-month API calls"[[i]] <- matched_row$"Month of API calls"  
+        }
         resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
         resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
+        if(include_API_calls) {
+          resource_map$"All-time API calls"[[i]] <- matched_row$"All API calls"  
+        }
       } else {
         resource_map$"1-month downloads"[[i]] <- 0
         resource_map$"1-month unique downloads"[[i]] <- 0
+        if(include_API_calls) {
+          resource_map$"1-month API calls"[[i]] <- 0  
+        }
         resource_map$"All-time downloads"[[i]] <- 0
         resource_map$"All-time unique downloads"[[i]] <- 0
+        if(include_API_calls) {
+          resource_map$"All-time API calls"[[i]] <- 0  
+        }
       }
     }
     write.csv(resource_map, cached_resource_map_file)
@@ -238,6 +257,8 @@ within_n_days_of <- function(df,n,last_date) {
 }
 
 cached_mode <- FALSE
+include_API_calls <- FALSE # Switching this will conflict with a cached version of 
+# the downloaded data, so eliminate this before deploying.
 
 if(!cached_mode) {
   source("get_data.R") # Load all the functions that get 
@@ -249,8 +270,8 @@ today <- Sys.Date()
 yesterday <- today - days(x=1)
 if(!cached_mode) {
   if(production) {
-    if(file.exists("/srv/shiny-server/WPRDC")) {
-      setwd("/srv/shiny-server/WPRDC")
+    if(file.exists("/srv/shiny-server/metrics")) {
+      setwd("/srv/shiny-server/metrics")
     }
   }
 }
@@ -300,13 +321,29 @@ if(refresh_download_data) {
   API_requests_month <- get_API_requests_gar(today-days(x=30),yesterday,p_Id,production)
   #  API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
   #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
-  downloads_per_month <- reduce_to_downloads(API_requests_month)
+  downloads_per_month <- reduce_to_category(API_requests_month,"CKAN Resource Download Request") #This reduces to downloads
+  
+  if(include_API_calls) {
+    API_calls_per_month <- reduce_to_category(API_requests_month,"CKAN API Request")
+    API_calls_per_month <- rename(API_calls_per_month,
+                                  c("totalEvents"="Month of API calls","uniqueEvents"="Month of unique API calls"))
+  }
   all_API_requests <- get_API_requests_gar("2015-10-15",yesterday,p_Id,production)
 #  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
   #all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
-  all_downloads <- reduce_to_downloads(all_API_requests)
+  all_downloads <- reduce_to_category(all_API_requests,"CKAN Resource Download Request")
 
+  if(include_API_calls) {
+    all_API_calls <- reduce_to_category(all_API_requests,"CKAN API Request")
+    all_API_calls <- rename(all_API_calls,
+                            c("totalEvents"="All API calls","uniqueEvents"="All unique API calls"))
+  }  
+    
   df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
+  if(include_API_calls) {
+    df_downloads <- merge(df_downloads,API_calls_per_month,by="eventLabel")
+    df_downloads <- merge(df_downloads,all_API_calls,by="eventLabel")
+  }
   df_downloads <- name_datasets(df_downloads)
   df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
   df_pageviews_month <- get_pageviews_gar(today-days(x=30),yesterday,p_Id,production)
