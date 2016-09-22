@@ -550,8 +550,10 @@ ui <- shinyUI(fluidPage(
                h3("ETL Processes"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
-      tabPanel("Dataset stats",dataTableOutput('downloads_table')),
-      tabPanel("Package stats",dataTableOutput('by_package')),
+      tabPanel("Dataset stats",dataTableOutput('downloads_table'),
+               downloadButton('downloadDatasetData', 'Download')),
+      tabPanel("Package stats",dataTableOutput('by_package'),
+               downloadButton('downloadPackageData', 'Download')),
       tabPanel("Classroom uses", 
                dataTableOutput('uses_table'),
                HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
@@ -602,9 +604,43 @@ server <- shinyServer(function(input, output) {
   output$downloads_table = renderDataTable({
     df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),] 
   })
+  output$downloadDatasetData <- downloadHandler(
+    
+    # This function returns a string which tells the client
+    # browser what name to use when saving the file.
+    filename = "dataset_downloads_and_pageviews.csv",
+    
+    # This function should write data to a file given to it by
+    # the argument 'file'.
+    content = function(file) {
+      sep <- ","
+      
+      # Write to a file specified by the 'file' argument
+      write.table(df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),], 
+                  file, sep = sep,
+                  row.names = FALSE)
+    }
+  )
   output$by_package = renderDataTable({
     package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),] 
   },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
+  output$downloadPackageData <- downloadHandler(
+    
+    # This function returns a string which tells the client
+    # browser what name to use when saving the file.
+    filename = "package_downloads_and_pageviews.csv",
+    
+    # This function should write data to a file given to it by
+    # the argument 'file'.
+    content = function(file) {
+      sep <- ","
+      
+      # Write to a file specified by the 'file' argument
+      write.table(package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),], 
+                  file, sep = sep,
+                  row.names = FALSE)
+    }
+  )
   output$publishers = renderDataTable({
     publishers
   })
