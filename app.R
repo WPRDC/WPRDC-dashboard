@@ -473,6 +473,9 @@ outreach_and_events <- nrow(outreach_events_table) - 1
 outreach_fields <- outreach_events_table[1,]
 colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
 outreach_events_table <- outreach_events_table[-c(1),]
+proper <- function(x) paste0(toupper(substr(x, 1, 1)), tolower(substring(x, 2)))
+outreach_events_table$Type <- proper(outreach_events_table$Type)
+
 # Due to a known deficiency in R and readxl (and really Excel 
 # for being weird about forcing dates to become datetimes), the 
 # first column of the Project Outreach & Events database, which 
