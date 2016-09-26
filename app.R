@@ -358,6 +358,7 @@ if(refresh_download_data) {
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
                                        c("pageviews"="All-time pageviews"))
+  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
                                                              "Organization",
                                                              "1-month downloads",
@@ -365,7 +366,8 @@ if(refresh_download_data) {
                                                              "1-month pageviews",
                                                              "All-time downloads",
                                                              "All-time unique downloads",
-                                                             "All-time pageviews")]
+                                                             "All-time pageviews",
+                                                             "Downloads per pageview")]
   
 #  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
   write.csv(df_downloads_and_pageviews, "df_downloads_and_pageviews.csv", row.names=FALSE)
