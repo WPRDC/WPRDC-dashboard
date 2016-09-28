@@ -2,6 +2,7 @@ library(RGoogleAnalytics)
 library(lubridate)
 library(googleAnalyticsR)
 library(googleAuthR)
+library(jsonlite)
 
 source("authentication.R") # Look up the p_Id, client ID, and client
 # secret to access the Google Analytics account. Also determine the
@@ -214,53 +215,33 @@ get_pageviews_gar <- function(start_date,end_date,
   }
 }
 
-
-
-authorize_analytics_gar_did_it_ever_work <- function(p_Id,client_id,client_secret,production) {
-  # This method only works under two conditions. If the token file exists and is
-  # valid, it will work. In non-production mode, the token can be recreated and
-  # saved using manual web authentication. Otherwise, this approach seems to fail
-  token_file <- "original-Google-service-account-credentials.json"
-  if(file.exists(token_file)) {
+get_site_stats <- function(df) {
+  # Pull from the Data Center's CKAN API a list of all resources and use this to
+  # obtain resource names, organizations, package names, and ID values to label
+  # the Google Analytics statistics (which are listed by resource ID).
+  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=9999"
+  
+  json_file <- "temp_site_stats.json"
+  
+  json_data <- fromJSON(json_file)
+  
+  if(exists("json_data")) {
+    site_stats <- json_data$result$records
+    site_stats$`average session duration (minutes)` <- as.numeric(site_stats$`Average session duration (minutes)`)
+    site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
+    site_stats$`pageviews per session` <- as.numeric(site_stats$`Pageviews per session`)
+    site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
+    site_stats$users <- as.integer(site_stats$Users)
+    site_stats$pageviews <- as.integer(site_stats$Pageviews)
+    site_stats$sessions <- as.integer(site_stats$Sessions)
+    site_stats <- site_stats[c("Year+month","users","sessions","pageviews","pageviews per session","average session duration (minutes)")]
+    site_stats$`year/month` <- paste(substring(site_stats$`Year+month`,1,4),substring(site_stats$`Year+month`,5,6),sep='/')
+    site_stats$year <- as.integer(substring(site_stats$`Year+month`,1,4))
+    site_stats$month <- as.integer(substring(site_stats$`Year+month`,5,6))
     
-    #https://cran.r-project.org/web/packages/googleAnalyticsR/vignettes/googleAnalyticsR.html
-    #Make sure to add the service email to the users of the Google project, and then 
-    #download the JSON file and authenticate via:
-    #googleAuthR::gar_auth_service("gwt-download-XXXX.json")
-    
-    
-    options(googleAuthR.client_id = client_id)
-    
-    options(googleAuthR.client_secret = client_secret)
-    options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/analytics"))
-    options(googleAuthR.webapp.client_id = "798439325891-g9u0fjsfij4plnq700r0hq8r671mfhrk.apps.googleusercontent.com")
-    options(googleAuthR.webapp.client_secret = "PjUX7m11E-0-yXZkG3l1RBdL")
-    
-    options(googleAuthR.scopes.selected = c("https://www.googleapis.com/auth/analytics"))
-    googleAuthR::gar_auth_service(json_file = token_file)
-#    googleAuthR::gar_auth_service(json_file = token_file,
-#                                  scope = "https://www.googleapis.com/auth/analytics")
-    # In some cases, it is necessary to transform the character sequence "\n" in
-    # that JSON file into actual carriage returns, as described here:
-    # http://stackoverflow.com/questions/31351344/openssl-crypto-error-in-signedjwtassertioncredentials-attempt
-    # However, this destroys the file's authenticity from the standpoint of gar_auth_service().
-    ValidateToken(oauth_token)
-    # This function checks whether the Access Token is expired. 
-    # If yes, it generates a new Access Token and updates the token object
-    ##  save(oauth_token, file = token_file)
-    #    if(!ValidateToken(oauth_token)) {
-    #      create_credentials(client_id,client_secret,token_file)
-    # As documented on this page
-    #   http://wearecoder.com/questions/k80x2/refresh-oauth-token-in-r-using-rgoogle-analytics
-    # this is not quite enough, as running ValidateToken() may produce "Error: Refresh token not available"
-    
-    # So you have to do this once:
-    # oauth_token$init_credentials()
-    # This pulls up the web page that allows you to choose a Google login.
-    #    }
   } else {
-    oauth_token <- create_credentials(client_id,client_secret,token_file,production)
+    site_stats <- NULL
   }
-  return(oauth_token)
+  
+  return(site_stats) 
 }
-
