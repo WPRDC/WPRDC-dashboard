@@ -256,7 +256,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- FALSE
+cached_mode <- TRUE
 include_API_calls <- FALSE # Switching this will conflict with a cached version of 
 # the downloaded data, so eliminate this before deploying.
 
@@ -291,14 +291,23 @@ if(!cached_mode) {
   }
 }
 
-site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
-site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
-site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
-site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
-site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
+
+site_stats <- get_site_stats()
+if(is.null(site_stats)) {
+  site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
+  site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
+  site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
+  site_stats <- site_stats[,!(names(site_stats) %in% c("average session duration (seconds)"))]
+  site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
+  site_stats <- site_stats[,!(names(site_stats) %in% c("year_month"))]
+}
 month_list <- paste(month.abb[site_stats$month],site_stats$year,sep=" ")
-numerical_month_list <- paste(site_stats$year,site_stats$month,sep="-")
-site_stats$year_month <- numerical_month_list
+numerical_month_list <- paste(site_stats$year,sprintf("%02d", site_stats$month),sep="/")
+year_month <- numerical_month_list
+site_stats <- cbind(year_month,site_stats[,!(names(site_stats) %in% c("year","month","Year+month"))])
+site_stats <- rename(site_stats, c("year_month"="year/month"))
+
+#site_stats$year_month <- numerical_month_list
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
@@ -403,7 +412,8 @@ if(refresh_download_data) {
                                    "X1.month.pageviews"="1-month pageviews", 
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
-                                   "All.time.pageviews"="All-time pageviews"))
+                                   "All.time.pageviews"="All-time pageviews",
+                                   "Downloads.per.pageview"="Downloads per pageview"))
   
   package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews, 
@@ -502,12 +512,9 @@ day_number <- difftime(Sys.Date() , as.Date("1900-01-01"), units = c("days"))+2
 recent_events <- outreach_events_table[(day_number-as.numeric(outreach_events_table$Date)) <= 90,]
 
 
-ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which 
+#ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which 
 # do not contain one month of data).
-new_percentage <- ga_site_stats$'New Users'/100
-users <- ga_site_stats$Users
-
-users <- site_stats$users
+#new_percentage <- ga_site_stats$'New Users'/100
 
 ui <- shinyUI(fluidPage(
   tags$head(tags$style(
@@ -565,6 +572,7 @@ ui <- shinyUI(fluidPage(
                             classroom_uses, pitt_uses, cmu_uses))),
       tabPanel("Outreach",
                h4("Media mentions: ", media_mentions),
+               hr(),
                dataTableOutput('twitter_followers'),
                HTML("<hr>"),
                h4("Total outreach instances & events: ", outreach_and_events),
@@ -580,14 +588,9 @@ ui <- shinyUI(fluidPage(
 
 # Define server logic required to render the output
 server <- shinyServer(function(input, output) {
-  
-  #   output$userPlot <- renderPlot({
-  #     barplot(users,names.arg=1:nrow(ga_site_stats),ylab="Users",xlab="Month",
-  #             col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
-  #   })
-  output$plot1 <- renderPlot({
+    output$plot1 <- renderPlot({
     if (input$plot_type == "Users") {
-      barplot(users,names.arg=month_list,ylab="Users by Month",xlab="",
+      barplot(site_stats$users,names.arg=month_list,ylab="Users by Month",xlab="",
               col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
     } else if (input$plot_type == "Sessions") {
       barplot(site_stats$sessions,names.arg=month_list,ylab="Sessions by Month",xlab="",
@@ -597,12 +600,9 @@ server <- shinyServer(function(input, output) {
               col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
     }
   })
-  output$userPlot <- renderPlot({
-
-  })
   output$analytics_table = renderDataTable({
     site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
-  })
+  },options = list(lengthMenu = c(12, 24, 48), pageLength = 12))
   output$uses_table = renderDataTable({
     df_uses
   })
