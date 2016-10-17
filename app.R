@@ -21,6 +21,7 @@ library(readxl)
 
 #sparklines:
 #http://bart6114.github.io/sparklines/
+library(sparklines)
 
 suppressMessages(library(dplyr))
 library(plyr) # Loaded to use the rename function.
@@ -312,6 +313,14 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
+if(!file.exists("monthly_dataset_downloads.csv")) {
+  monthly_dataset_downloads <- get_monthly_dataset_downloads()
+} else {
+  monthly_dataset_downloads <- read.csv("monthly_dataset_downloads.csv")
+}
+write.csv(monthly_dataset_downloads, "monthly_dataset_downloads.csv", row.names=FALSE)
+
+
 refresh_download_data <- FALSE
 if(!file.exists("df_downloads_and_pageviews.csv")) {
   refresh_download_data <- TRUE
@@ -367,7 +376,11 @@ if(refresh_download_data) {
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
                                        c("pageviews"="All-time pageviews"))
-  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
+  #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
+  #The "downloads per pageview" metric problem: Downloads have not been 
+  #tracked as long as pageviews have, which skews this metric based on the age of the dataset.
+  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`1-month unique downloads`/df_downloads_and_pageviews$`1-month pageviews`,digits=1)
+  
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
                                                              "Organization",
                                                              "1-month downloads",

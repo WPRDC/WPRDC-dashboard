@@ -235,7 +235,7 @@ get_site_stats <- function(df) {
     site_stats$pageviews <- as.integer(site_stats$Pageviews)
     site_stats$sessions <- as.integer(site_stats$Sessions)
     site_stats <- site_stats[c("Year+month","users","sessions","pageviews","pageviews per session","average session duration (minutes)")]
-    site_stats$`year/month` <- paste(substring(site_stats$`Year+month`,1,4),substring(site_stats$`Year+month`,5,6),sep='/')
+#    site_stats$`year/month` <- paste(substring(site_stats$`Year+month`,1,4),substring(site_stats$`Year+month`,5,6),sep='/')
     site_stats$year <- as.integer(substring(site_stats$`Year+month`,1,4))
     site_stats$month <- as.integer(substring(site_stats$`Year+month`,5,6))
     
@@ -243,5 +243,29 @@ get_site_stats <- function(df) {
     site_stats <- NULL
   }
   
+  return(site_stats) 
+}
+
+get_monthly_dataset_downloads <- function(df) {
+  # Pull from the Data Center's CKAN API a list of all resources and use this to
+  # obtain resource names, organizations, package names, and ID values to label
+  # the Google Analytics statistics (which are listed by resource ID).
+  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=e8889e36-e4b1-4343-bb51-fb687eb9a2ff&limit=9999"
+
+  json_file <- "temp_monthly_dataset_downloads.json"
+  
+  json_data <- fromJSON(json_file)
+  
+  if(exists("json_data")) {
+    site_stats <- json_data$result$records
+    site_stats$`Unique downloads` <- as.integer(site_stats$`Unique downloads`)
+    site_stats$Downloads <- as.integer(site_stats$Downloads)
+    site_stats$`Resource ID` <- as.character(site_stats$`Resource ID`)
+    site_stats <- site_stats[c("Year+month","Resource ID","Downloads","Unique downloads")]
+    site_stats$year <- as.integer(substring(site_stats$`Year+month`,1,4))
+    site_stats$month <- as.integer(substring(site_stats$`Year+month`,5,6))
+  } else {
+    site_stats <- NULL
+  }
   return(site_stats) 
 }
