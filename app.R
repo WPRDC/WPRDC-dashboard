@@ -723,12 +723,12 @@ server <- shinyServer(function(input, output) {
               col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
     }
   })
-  output$analytics_table = renderDataTable({
+  output$analytics_table = DT::renderDataTable({
     site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
-  },options = list(lengthMenu = c(12, 24, 48), pageLength = 12))
-  output$uses_table = renderDataTable({
+  },options = list(lengthMenu = c(12, 24, 48), pageLength = 12),rownames=FALSE)
+  output$uses_table = DT::renderDataTable({
     df_uses
-  })
+  },rownames=FALSE)
   output$downloads_table = DT::renderDataTable({
     the_downloads_table
   })
@@ -749,9 +749,9 @@ server <- shinyServer(function(input, output) {
                   row.names = FALSE)
     }
   )
-  output$by_package = renderDataTable({
+  output$by_package = DT::renderDataTable({
     package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),] 
-  },options = list(lengthMenu = c(10, 25, 50), pageLength = 10))
+  },options = list(lengthMenu = c(10, 25, 50), pageLength = 10),rownames=FALSE)
   output$downloadPackageData <- downloadHandler(
     
     # This function returns a string which tells the client
@@ -769,18 +769,18 @@ server <- shinyServer(function(input, output) {
                   row.names = FALSE)
     }
   )
-  output$publishers = renderDataTable({
+  output$publishers = DT::renderDataTable({
     publishers
-  })
-  output$etl = renderDataTable({
+  },rownames=FALSE)
+  output$etl = DT::renderDataTable({
     etl_processes
-  })
-  output$misc = renderDataTable({
+  },rownames=FALSE)
+  output$misc = DT::renderDataTable({
     misc_other_stats
-  })
-  output$twitter_followers = renderDataTable({
+  },rownames=FALSE)
+  output$twitter_followers = DT::renderDataTable({
     twitter_followers
-  })
+  },rownames=FALSE)
   output$event_types_plot = renderPlot({
     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#ff3300"))
