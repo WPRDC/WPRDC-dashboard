@@ -21,7 +21,12 @@ library(readxl)
 
 #sparklines:
 #http://bart6114.github.io/sparklines/
-library(sparklines)
+#library(sparklines) # Replaced by htmlwidgets/sparkline.
+library(data.table)
+library(DT)
+library(htmlwidgets)
+library(sparkline)
+
 
 suppressMessages(library(dplyr))
 library(plyr) # Loaded to use the rename function.
@@ -257,7 +262,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- TRUE
+cached_mode <- FALSE
 include_API_calls <- FALSE # Switching this will conflict with a cached version of 
 # the downloaded data, so eliminate this before deploying.
 
@@ -381,6 +386,8 @@ if(refresh_download_data) {
   #tracked as long as pageviews have, which skews this metric based on the age of the dataset.
   df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`1-month unique downloads`/df_downloads_and_pageviews$`1-month pageviews`,digits=1)
   
+  resource_ids <- as.vector(mapply(function(x) gsub(".*\\/", "",x),df_downloads_and_pageviews$resource_path))
+  df_downloads_and_pageviews$`Resource ID` <- resource_ids
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
                                                              "Organization",
                                                              "1-month downloads",
@@ -389,7 +396,8 @@ if(refresh_download_data) {
                                                              "All-time downloads",
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
-                                                             "Downloads per pageview")]
+                                                             "Downloads per pageview",
+                                                             "Resource ID")]
   
 #  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
   write.csv(df_downloads_and_pageviews, "df_downloads_and_pageviews.csv", row.names=FALSE)
@@ -426,7 +434,8 @@ if(refresh_download_data) {
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews",
-                                   "Downloads.per.pageview"="Downloads per pageview"))
+                                   "Downloads.per.pageview"="Downloads per pageview",
+                                   "Resource.ID"="Resource ID"))
   
   package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews, 
@@ -437,6 +446,101 @@ if(refresh_download_data) {
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews"))
 }
+
+d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),]
+
+#### Fancy manipulations to enable embedding of sparklines depicting dataset download histories.
+# How to add a column containing lists in R (which R makes difficult):
+# df$c <- list(c(0),c(1,4,9)) 
+
+# How to change a column that's numeric, so that one entry is a list:
+# df$g[1] <- list(c(5.4,3.2))
+
+#d0$Spark <- 0                                   # This
+#d0$Spark[1] <- list(c(-3,2,-1,1,0,1,1,2,3,5,8)) # works!
+
+mdd <- monthly_dataset_downloads
+names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname)
+names(mdd)[names(mdd)=="Year.month"] <- "ym"
+names(mdd)[names(mdd)=="Resource ID"] <- "id"
+names(mdd)[names(mdd)=="Resource.ID"] <- "id"
+wide_mdd <- dcast(mdd,id ~ ym,value.var="Downloads") # Excludes "Unique downloads"
+#as.list(as.data.frame(wdd))
+r_ids <- wide_mdd[[1]]
+
+number_of_months <- length(colnames(wide_mdd))
+x <- wide_mdd[c(2:number_of_months)]
+history_rows <- t(x)
+
+wide_mdd_length <- length(row.names(wide_mdd))
+#d0$Spark[1] <- list(history_rows[,1])
+
+for(k in 1:wide_mdd_length) {
+  if(k == 1) {
+    history_frame <- data_frame(id=r_ids[[k]],dl_history=0)
+                          #dl_history=as.vector(history_rows[,k]))
+  } else {
+    history_frame <- rbind(history_frame, 
+                       c(r_ids[[k]],0))
+                         #as.vector(history_rows[,k])))
+  } # I spent a huge amount of time trying to find a more R-ish way to do this, and 
+  history_frame$dl_history[k] <- list(history_rows[,k]) # in the end, the only approach
+} # that I found that would work was creating a data frame with integer columns and 
+# only then substituting a vector of integers for the download history field.
+
+
+
+# aggregated_monthly_downloads should have two columns: resource_id and dl_history
+# aggregated_monthly_downloads$dl_history should look something like c(1,0,1,1,2,3,5,8)
+
+df_datasets_sparks <- merge(df_downloads_and_pageviews,history_frame,
+                                    by.x="Resource ID",by.y="id",all.x = TRUE)
+df_datasets_sparks <- rename(df_datasets_sparks,
+                                     c("dl_history"="Monthly downloads"))
+
+df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
+
+df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
+
+d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),]
+
+d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
+d0 <- d0[c("Package","Dataset",
+           "Organization",
+           "Monthly downloads",
+           "1-month downloads",
+           "1-month unique downloads",
+           "1-month pageviews",
+           "All-time downloads",
+           "All-time unique downloads",
+           "All-time pageviews")]
+
+columnDefs = list(list(
+  targets = c(3), # The column to convert from a vector/list/whatever into a sparkline.
+  # Don't put the sparkline in the last column because otherwise many of the tooltips
+  # will be outside the browser window (and therefore hidden).
+  render = JS("function(data, type, full){
+              return '<span class=spark>' + data + '</span>'           
+              }")
+))
+
+fnDrawCallback = JS("function (oSettings, json) {
+                    $('.spark:not(:has(canvas))').sparkline('html', {
+                    type: 'bar',
+                    highlightColor: 'orange'
+                    });
+                    }")
+
+d1 <- datatable(d0, options = list(
+  columnDefs = columnDefs,
+  fnDrawCallback = fnDrawCallback
+), rownames= FALSE)
+d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
+
+
+
+the_downloads_table <- d1
+#####
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
 # When RGA samples a metric every day (using the fetch.by = "day" option), 
@@ -539,7 +643,13 @@ ui <- shinyUI(fluidPage(
          
          body, label, input, button, select { 
          font-family: Optima,"Lucida Grande",Tahoma;
-         }')
+         }
+         .jqstooltip {
+             -webkit-box-sizing: content-box;
+             -moz-box-sizing: content-box;
+             box-sizing: content-box;
+         }   
+         ')
   )),
   # Application title
   titlePanel("",windowTitle = "Data Center Metrics"),
@@ -575,7 +685,7 @@ ui <- shinyUI(fluidPage(
                h3("ETL Processes"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
-      tabPanel("Dataset stats",dataTableOutput('downloads_table'),
+      tabPanel("Dataset stats",DT::dataTableOutput('downloads_table'),
                downloadButton('downloadDatasetData', 'Download')),
       tabPanel("Package stats",dataTableOutput('by_package'),
                downloadButton('downloadPackageData', 'Download')),
@@ -619,8 +729,8 @@ server <- shinyServer(function(input, output) {
   output$uses_table = renderDataTable({
     df_uses
   })
-  output$downloads_table = renderDataTable({
-    df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),] 
+  output$downloads_table = DT::renderDataTable({
+    the_downloads_table
   })
   output$downloadDatasetData <- downloadHandler(
     
