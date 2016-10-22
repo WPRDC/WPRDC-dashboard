@@ -3,11 +3,19 @@ library(lubridate)
 library(googleAnalyticsR)
 library(googleAuthR)
 library(jsonlite)
+library(httr)
 
 source("authentication.R") # Look up the p_Id, client ID, and client
 # secret to access the Google Analytics account. Also determine the
 # value of the production variable, which sets whether this is a
 # production or development environment.
+
+authorize_json_request <- function(url,API_key) {
+  req <- httr::GET(url, httr::add_headers(Authorization = API_key))
+  json <- httr::content(req, as = "text")
+  json_data <- fromJSON(json)
+  return(json_data)
+}
 
 authorize_analytics <- function(p_Id,client_id,client_secret,production) {
   if(!production) {
@@ -216,15 +224,10 @@ get_pageviews_gar <- function(start_date,end_date,
 }
 
 get_site_stats <- function(df) {
-  # Pull from the Data Center's CKAN API a list of all resources and use this to
-  # obtain resource names, organizations, package names, and ID values to label
-  # the Google Analytics statistics (which are listed by resource ID).
+  # Pull WPRDC stats from a dedicated data repository on wprdc.org.
   json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=9999"
-  
-  json_file <- "temp_site_stats.json"
-  
-  json_data <- fromJSON(json_file)
-  
+  json_data <- authorize_json_request(json_file,CKAN_API_key)
+    
   if(exists("json_data")) {
     site_stats <- json_data$result$records
     site_stats$`average session duration (minutes)` <- as.numeric(site_stats$`Average session duration (minutes)`)
@@ -247,14 +250,9 @@ get_site_stats <- function(df) {
 }
 
 get_monthly_dataset_downloads <- function(df) {
-  # Pull from the Data Center's CKAN API a list of all resources and use this to
-  # obtain resource names, organizations, package names, and ID values to label
-  # the Google Analytics statistics (which are listed by resource ID).
+  # Pull WPRDC monthly downloads stats by dataset from a dedicated data repository on wprdc.org.
   json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=e8889e36-e4b1-4343-bb51-fb687eb9a2ff&limit=9999"
-
-  json_file <- "temp_monthly_dataset_downloads.json"
-  
-  json_data <- fromJSON(json_file)
+  json_data <- authorize_json_request(json_file,CKAN_API_key)
   
   if(exists("json_data")) {
     site_stats <- json_data$result$records
