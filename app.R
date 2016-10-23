@@ -274,13 +274,15 @@ if(!cached_mode) {
 
 today <- Sys.Date()
 yesterday <- today - days(x=1)
-if(!cached_mode) {
-  if(production) {
-    if(file.exists("/srv/shiny-server/metrics")) {
-      setwd("/srv/shiny-server/metrics")
-    }
-  }
-}
+source("setwd_to_file_location.R")
+
+#if(!cached_mode) {
+#  if(production) {
+#    if(file.exists("/srv/shiny-server/metrics")) {
+#      setwd("/srv/shiny-server/metrics")
+#    }
+#  }
+#}
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
 cached_metrics_file = "cached_metrics_sheet.xlsx"
