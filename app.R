@@ -286,7 +286,18 @@ source("setwd_to_file_location.R")
 #df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
 
 cached_metrics_file = "cached_metrics_sheet.xlsx"
-if(!cached_mode) {
+
+refresh_google_sheets_data <- FALSE
+
+if(!file.exists(cached_metrics_file)) {
+  refresh_google_sheets_data <- TRUE
+} else if(!cached_mode) {
+  if(Sys.time()-dminutes(59.11) > c(file.info(cached_metrics_file)$mtime)) {
+    refresh_google_sheets_data <- TRUE
+  }
+}
+
+if((!cached_mode) & (refresh_google_sheets_data)) {
   if(production) {
     googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
   }
@@ -298,6 +309,19 @@ if(!cached_mode) {
     metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
   }
 }
+
+#if(!cached_mode) {
+#  if(production) {
+#    googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
+#  }
+#  if(exists("metrics")) {
+#    rm(metrics)
+#  }
+#  metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
+#  if(exists("metrics")) {
+#    metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
+#  }
+#}
 
 
 site_stats <- get_site_stats()
@@ -701,7 +725,7 @@ ui <- shinyUI(fluidPage(
                dataTableOutput('twitter_followers'),
                HTML("<hr>"),
                h4("Total outreach instances & events: ", outreach_and_events),
-               HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in blue)</span></center>"),
+               HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in orange)</span></center>"),
                fluidRow(
                  splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
                )
@@ -785,11 +809,11 @@ server <- shinyServer(function(input, output) {
   },rownames=FALSE)
   output$event_types_plot = renderPlot({
     dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
-             las=1,xlab="Count",col=c("#ff3300"))
+             las=1,xlab="Count",col=c("#0033ff"))
   })
   output$recent_event_types_plot = renderPlot({
     dotchart(sort(table(recent_events$Type),decreasing=FALSE),
-             las=1,xlab="Count",col=c("#0033ff"))
+             las=1,xlab="Count",col=c("#ff9900"))
   })
 })
 
