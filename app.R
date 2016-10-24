@@ -169,10 +169,10 @@ name_datasets <- function(df) {
     }
     
     # The next part could probably more simply be done with the merge function.
-    resource_map$"1-month downloads" <- 0
-    resource_map$"1-month unique downloads" <- 0
+    resource_map$"30-day downloads" <- 0
+    resource_map$"30-day unique downloads" <- 0
     if(include_API_calls) {
-      resource_map$"1-month API calls" <- 0
+      resource_map$"30-day API calls" <- 0
     }
     resource_map$"All-time downloads" <- 0
     resource_map$"All-time unique downloads" <- 0
@@ -182,10 +182,10 @@ name_datasets <- function(df) {
     for(i in 1:nrow(resource_map)) {
       if(resource_map$id[[i]] %in% df$eventLabel){
         matched_row <- df[df$eventLabel == resource_map$id[[i]],]
-        resource_map$"1-month downloads"[[i]] <- matched_row$totalEvents.x
-        resource_map$"1-month unique downloads"[[i]] <- matched_row$uniqueEvents.x
+        resource_map$"30-day downloads"[[i]] <- matched_row$totalEvents.x
+        resource_map$"30-day unique downloads"[[i]] <- matched_row$uniqueEvents.x
         if(include_API_calls) {
-          resource_map$"1-month API calls"[[i]] <- matched_row$"Month of API calls"  
+          resource_map$"30-day API calls"[[i]] <- matched_row$"Month of API calls"  
         }
         resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
         resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
@@ -193,10 +193,10 @@ name_datasets <- function(df) {
           resource_map$"All-time API calls"[[i]] <- matched_row$"All API calls"  
         }
       } else {
-        resource_map$"1-month downloads"[[i]] <- 0
-        resource_map$"1-month unique downloads"[[i]] <- 0
+        resource_map$"30-day downloads"[[i]] <- 0
+        resource_map$"30-day unique downloads"[[i]] <- 0
         if(include_API_calls) {
-          resource_map$"1-month API calls"[[i]] <- 0  
+          resource_map$"30-day API calls"[[i]] <- 0  
         }
         resource_map$"All-time downloads"[[i]] <- 0
         resource_map$"All-time unique downloads"[[i]] <- 0
@@ -224,15 +224,15 @@ group_by_package <- function(df) {
   package_list <- unique(df$Package)
   for(k in 1:length(package_list)) {
     matched_rows <- df[df$Package == package_list[[k]],]
-    dl_1 <- sum(matched_rows$"1-month downloads")
-    dl_1_unique <- sum(matched_rows$"1-month unique downloads")
+    dl_1 <- sum(matched_rows$"30-day downloads")
+    dl_1_unique <- sum(matched_rows$"30-day unique downloads")
     dl_all <- sum(matched_rows$"All-time downloads")
     dl_all_unique <- sum(matched_rows$"All-time unique downloads")
     if(k == 1) {
       grouped <- data_frame(Package=c(matched_rows$Package[[1]]),
                             Organization=c(matched_rows$Organization[[1]]),
-                            "1-month downloads"=as.numeric(c(dl_1)),
-                            "1-month unique downloads"=c(dl_1_unique),
+                            "30-day downloads"=as.numeric(c(dl_1)),
+                            "30-day unique downloads"=c(dl_1_unique),
                             "All-time downloads"=c(dl_all),
                             "All-time unique downloads"=c(dl_all_unique),
                             Resources=c(nrow(matched_rows)),
@@ -249,8 +249,8 @@ group_by_package <- function(df) {
                          matched_rows$package_path[[1]]))
     }
   }
-  grouped$`1-month downloads` <- as.numeric(grouped$`1-month downloads`)
-  grouped$`1-month unique downloads` <- as.numeric(grouped$`1-month unique downloads`)
+  grouped$`30-day downloads` <- as.numeric(grouped$`30-day downloads`)
+  grouped$`30-day unique downloads` <- as.numeric(grouped$`30-day unique downloads`)
   grouped$`All-time downloads` <- as.numeric(grouped$`All-time downloads`)
   grouped$`All-time unique downloads` <- as.numeric(grouped$`All-time unique downloads`)
   return(grouped)
@@ -402,7 +402,7 @@ if(refresh_download_data) {
   df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
-                         c("pageviews"="1-month pageviews"))
+                         c("pageviews"="30-day pageviews"))
   df_downloads_and_pageviews <- merge(df_downloads_and_pageviews,df_pageviews_all,
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
@@ -410,15 +410,15 @@ if(refresh_download_data) {
   #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
   #The "downloads per pageview" metric problem: Downloads have not been 
   #tracked as long as pageviews have, which skews this metric based on the age of the dataset.
-  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`1-month unique downloads`/df_downloads_and_pageviews$`1-month pageviews`,digits=1)
+  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`30-day unique downloads`/df_downloads_and_pageviews$`30-day pageviews`,digits=1)
   
   resource_ids <- as.vector(mapply(function(x) gsub(".*\\/", "",x),df_downloads_and_pageviews$resource_path))
   df_downloads_and_pageviews$`Resource ID` <- resource_ids
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
                                                              "Organization",
-                                                             "1-month downloads",
-                                                             "1-month unique downloads",
-                                                             "1-month pageviews",
+                                                             "30-day downloads",
+                                                             "30-day unique downloads",
+                                                             "30-day pageviews",
                                                              "All-time downloads",
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
@@ -432,7 +432,7 @@ if(refresh_download_data) {
   package_downloads_and_pageviews <- merge(downloads_by_package,df_pageviews_month,
                                       by.x="package_path",by.y="pagePath")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
-                                       c("pageviews"="1-month pageviews"))
+                                       c("pageviews"="30-day pageviews"))
   package_downloads_and_pageviews <- merge(package_downloads_and_pageviews,df_pageviews_all,
                                            by.x="package_path",by.y="pagePath")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
@@ -440,9 +440,9 @@ if(refresh_download_data) {
   
   package_downloads_and_pageviews <- package_downloads_and_pageviews[c("Package",
                                                              "Organization",
-                                                             "1-month downloads",
-                                                             "1-month unique downloads",
-                                                             "1-month pageviews",
+                                                             "30-day downloads",
+                                                             "30-day unique downloads",
+                                                             "30-day pageviews",
                                                              "All-time downloads",
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
@@ -454,9 +454,9 @@ if(refresh_download_data) {
 } else {
   df_downloads_and_pageviews <- read.csv("df_downloads_and_pageviews.csv")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews, 
-                                 c("X1.month.downloads"="1-month downloads", 
-                                   "X1.month.unique.downloads"="1-month unique downloads", 
-                                   "X1.month.pageviews"="1-month pageviews", 
+                                 c("X30.day.downloads"="30-day downloads", 
+                                   "X30.day.unique.downloads"="30-day unique downloads", 
+                                   "X30.day.pageviews"="30-day pageviews", 
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews",
@@ -465,15 +465,15 @@ if(refresh_download_data) {
   
   package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews, 
-                                 c("X1.month.downloads"="1-month downloads", 
-                                   "X1.month.unique.downloads"="1-month unique downloads", 
-                                   "X1.month.pageviews"="1-month pageviews", 
+                                 c("X30.day.downloads"="30-day downloads", 
+                                   "X30.day.unique.downloads"="30-day unique downloads", 
+                                   "X30.day.pageviews"="30-day pageviews", 
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews"))
 }
 
-d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),]
+d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
 #### Fancy manipulations to enable embedding of sparklines depicting dataset download histories.
 # How to add a column containing lists in R (which R makes difficult):
@@ -528,15 +528,15 @@ df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
 
 df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
 
-d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),]
+d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
 d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
 d0 <- d0[c("Package","Dataset",
            "Organization",
            "Monthly downloads",
-           "1-month downloads",
-           "1-month unique downloads",
-           "1-month pageviews",
+           "30-day downloads",
+           "30-day unique downloads",
+           "30-day pageviews",
            "All-time downloads",
            "All-time unique downloads",
            "All-time pageviews")]
@@ -770,13 +770,13 @@ server <- shinyServer(function(input, output) {
       sep <- ","
       
       # Write to a file specified by the 'file' argument
-      write.table(df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"1-month downloads"),], 
+      write.table(df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),], 
                   file, sep = sep,
                   row.names = FALSE)
     }
   )
   output$by_package = DT::renderDataTable({
-    package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),] 
+    package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"30-day downloads"),] 
   },options = list(lengthMenu = c(10, 25, 50), pageLength = 10),rownames=FALSE)
   output$downloadPackageData <- downloadHandler(
     
@@ -790,7 +790,7 @@ server <- shinyServer(function(input, output) {
       sep <- ","
       
       # Write to a file specified by the 'file' argument
-      write.table(package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"1-month downloads"),], 
+      write.table(package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"30-day downloads"),], 
                   file, sep = sep,
                   row.names = FALSE)
     }
