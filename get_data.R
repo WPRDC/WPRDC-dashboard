@@ -223,14 +223,14 @@ get_pageviews_gar <- function(start_date,end_date,
   }
 }
 
-get_site_stats <- function(df) {
+get_site_stats <- function() {
   # Pull WPRDC stats from a dedicated data repository on wprdc.org.
   json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=9999"
   json_data <- authorize_json_request(json_file,CKAN_API_key)
     
   if(exists("json_data")) {
     site_stats <- json_data$result$records
-    site_stats$`average session duration (minutes)` <- as.numeric(site_stats$`Average session duration (minutes)`)
+    site_stats$`average session duration (minutes)` <- as.numeric(site_stats$`Average session duration (seconds)`)/60
     site_stats$`average session duration (minutes)` <- round(x=site_stats$`average session duration (minutes)`, digits = 2)
     site_stats$`pageviews per session` <- as.numeric(site_stats$`Pageviews per session`)
     site_stats$`pageviews per session` <- round(x=site_stats$`pageviews per session`, digits = 2)
@@ -249,7 +249,7 @@ get_site_stats <- function(df) {
   return(site_stats) 
 }
 
-get_monthly_dataset_downloads <- function(df) {
+get_monthly_dataset_downloads <- function() {
   # Pull WPRDC monthly downloads stats by dataset from a dedicated data repository on wprdc.org.
   json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=e8889e36-e4b1-4343-bb51-fb687eb9a2ff&limit=9999"
   json_data <- authorize_json_request(json_file,CKAN_API_key)
