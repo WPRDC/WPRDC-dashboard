@@ -339,6 +339,8 @@ year_month <- numerical_month_list
 site_stats <- cbind(year_month,site_stats[,!(names(site_stats) %in% c("year","month","Year+month"))])
 site_stats <- rename(site_stats, c("year_month"="year/month"))
 
+site_stats_reversed <- site_stats[order(site_stats$"year/month",decreasing=TRUE),]
+
 #site_stats$year_month <- numerical_month_list
 year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
@@ -712,8 +714,10 @@ ui <- shinyUI(fluidPage(
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
       tabPanel("Dataset stats",DT::dataTableOutput('downloads_table'),
+               HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                downloadButton('downloadDatasetData', 'Download')),
       tabPanel("Package stats",dataTableOutput('by_package'),
+               HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                downloadButton('downloadPackageData', 'Download')),
       tabPanel("Classroom uses", 
                dataTableOutput('uses_table'),
@@ -750,7 +754,7 @@ server <- shinyServer(function(input, output) {
     }
   })
   output$analytics_table = DT::renderDataTable({
-    site_stats[,!(names(site_stats) %in% c("year","month"))] #df_analytics
+    site_stats_reversed[,!(names(site_stats_reversed) %in% c("year","month"))] #df_analytics
   },options = list(lengthMenu = c(12, 24, 48), pageLength = 12),rownames=FALSE)
   output$uses_table = DT::renderDataTable({
     df_uses
