@@ -535,6 +535,10 @@ df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
 
 df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
 
+dataset_download_df <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
+reformat <- function(x) {paste(x,collapse="|")}
+dataset_download_df$`Monthly downloads` <- reformat(dataset_download_df$`Monthly downloads`)
+
 d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
 d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
@@ -785,9 +789,7 @@ server <- shinyServer(function(input, output) {
       sep <- ","
       
       # Write to a file specified by the 'file' argument
-      write.table(df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),], 
-                  file, sep = sep,
-                  row.names = FALSE)
+      write.table(dataset_download_df, file, sep = sep, row.names = FALSE)
     }
   )
   output$by_package = DT::renderDataTable({
