@@ -256,6 +256,11 @@ group_by_package <- function(df) {
   return(grouped)
 }
 
+stacked_barplot_matrix <- function(v) {
+  data <- matrix(c(v[seq(1,length(v)-1)],0*v,v[c(length(v))]),nrow=2,byrow=T)
+  return(data)
+}
+
 within_n_days_of <- function(df,n,last_date) {
   difference_in_days <- today-as.Date(df$Date,"%m/%d/%Y")
   df <- df[difference_in_days <= n,]
@@ -656,10 +661,12 @@ outreach_events_table$Date <- as.numeric(outreach_events_table$Date)
 day_number <- difftime(Sys.Date() , as.Date("1900-01-01"), units = c("days"))+2
 recent_events <- outreach_events_table[(day_number-as.numeric(outreach_events_table$Date)) <= 90,]
 
+# Prepare matrices for presenting users/sessions/pageviews plots.
+sbm_users <- stacked_barplot_matrix(site_stats$users)
+sbm_sessions <- stacked_barplot_matrix(site_stats$sessions)
+sbm_pageviews <- stacked_barplot_matrix(site_stats$pageviews)
 
-#ga_site_stats <- gadp[-c(3,4),] # Eliminating rows 3 and 4 (which 
-# do not contain one month of data).
-#new_percentage <- ga_site_stats$'New Users'/100
+
 
 ui <- shinyUI(fluidPage(
   tags$head(tags$style(
@@ -742,16 +749,20 @@ ui <- shinyUI(fluidPage(
 # Define server logic required to render the output
 server <- shinyServer(function(input, output) {
     output$plot1 <- renderPlot({
-    if (input$plot_type == "Users") {
-      barplot(site_stats$users,names.arg=month_list,ylab="Users by Month",xlab="",
-              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+      hues <- c("#0066cc","#0090cc")
+      if (input$plot_type == "Users") {
+#      barplot(site_stats$users,names.arg=month_list,ylab="Users by Month",xlab="",
+#              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+      barplot(sbm_users,names.arg=month_list,ylab="Users by Month",xlab="",
+              col=hues,cex.names=1.5,cex.lab=1.5)
     } else if (input$plot_type == "Sessions") {
-      barplot(site_stats$sessions,names.arg=month_list,ylab="Sessions by Month",xlab="",
-              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+      barplot(sbm_sessions,names.arg=month_list,ylab="Sessions by Month",xlab="",
+              col=hues,cex.names=1.5,cex.lab=1.5)
     } else if (input$plot_type == "Pageviews") {
-      barplot(site_stats$pageviews,names.arg=month_list,ylab="Pageviews by Month",xlab="",
-              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
+      barplot(sbm_pageviews,names.arg=month_list,ylab="Pageviews by Month",xlab="",
+              col=hues,cex.names=1.5,cex.lab=1.5)
     }
+    legend("bottomleft",inset=c(0.05,0.05), fill=rev(hues), legend=c("This month","Previous months"))
   })
   output$analytics_table = DT::renderDataTable({
     site_stats_reversed[,!(names(site_stats_reversed) %in% c("year","month"))] #df_analytics
