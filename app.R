@@ -536,8 +536,8 @@ df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
 df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
 
 dataset_download_df <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
-reformat <- function(x) {paste(x,collapse="|")}
-dataset_download_df$`Monthly downloads` <- reformat(dataset_download_df$`Monthly downloads`)
+reformat <- function(x) {paste(as.vector(x),collapse="|")}
+dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,reformat))
 
 d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
