@@ -279,7 +279,11 @@ if(!cached_mode) {
 
 today <- Sys.Date()
 yesterday <- today - days(x=1)
-source("setwd_to_file_location.R")
+if(!production) {
+  setwd("/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard")
+} else {
+  source("setwd_to_file_location.R")
+}
 
 #if(!cached_mode) {
 #  if(production) {
@@ -417,7 +421,7 @@ if(refresh_download_data) {
   #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
   #The "downloads per pageview" metric problem: Downloads have not been 
   #tracked as long as pageviews have, which skews this metric based on the age of the dataset.
-  df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`30-day unique downloads`/df_downloads_and_pageviews$`30-day pageviews`,digits=1)
+  #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`30-day unique downloads`/df_downloads_and_pageviews$`30-day pageviews`,digits=1)
   
   resource_ids <- as.vector(mapply(function(x) gsub(".*\\/", "",x),df_downloads_and_pageviews$resource_path))
   df_downloads_and_pageviews$`Resource ID` <- resource_ids
@@ -430,7 +434,7 @@ if(refresh_download_data) {
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
                                                              "All-time API calls",
-                                                             "Downloads per pageview",
+                                                             #"Downloads per pageview",
                                                              "Resource ID")]
   
 #  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
@@ -470,7 +474,7 @@ if(refresh_download_data) {
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews",
                                    "All.time.API.calls"="All-time API calls",
-                                   "Downloads.per.pageview"="Downloads per pageview",
+                                   #"Downloads.per.pageview"="Downloads per pageview",
                                    "Resource.ID"="Resource ID"))
   
   package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
