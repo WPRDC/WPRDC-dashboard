@@ -171,9 +171,9 @@ name_datasets <- function(df) {
     # The next part could probably more simply be done with the merge function.
     resource_map$"30-day downloads" <- 0
     resource_map$"30-day unique downloads" <- 0
-    if(include_API_calls) {
-      resource_map$"30-day API calls" <- 0
-    }
+    #if(include_API_calls) {
+    #  resource_map$"30-day API calls" <- 0
+    #}
     resource_map$"All-time downloads" <- 0
     resource_map$"All-time unique downloads" <- 0
     if(include_API_calls) {
@@ -184,9 +184,9 @@ name_datasets <- function(df) {
         matched_row <- df[df$eventLabel == resource_map$id[[i]],]
         resource_map$"30-day downloads"[[i]] <- matched_row$totalEvents.x
         resource_map$"30-day unique downloads"[[i]] <- matched_row$uniqueEvents.x
-        if(include_API_calls) {
-          resource_map$"30-day API calls"[[i]] <- matched_row$"Month of API calls"  
-        }
+        #if(include_API_calls) {
+        #  resource_map$"30-day API calls"[[i]] <- matched_row$"Month of API calls"  
+        #}
         resource_map$"All-time downloads"[[i]] <- matched_row$totalEvents.y
         resource_map$"All-time unique downloads"[[i]] <- matched_row$uniqueEvents.y
         if(include_API_calls) {
@@ -195,9 +195,9 @@ name_datasets <- function(df) {
       } else {
         resource_map$"30-day downloads"[[i]] <- 0
         resource_map$"30-day unique downloads"[[i]] <- 0
-        if(include_API_calls) {
-          resource_map$"30-day API calls"[[i]] <- 0  
-        }
+        #if(include_API_calls) { # This is for the 30-day API calls.
+        #  resource_map$"30-day API calls"[[i]] <- 0  
+        #}
         resource_map$"All-time downloads"[[i]] <- 0
         resource_map$"All-time unique downloads"[[i]] <- 0
         if(include_API_calls) {
@@ -268,7 +268,7 @@ within_n_days_of <- function(df,n,last_date) {
 }
 
 cached_mode <- FALSE
-include_API_calls <- FALSE # Switching this will conflict with a cached version of 
+include_API_calls <- TRUE #FALSE # Switching this will conflict with a cached version of 
 # the downloaded data, so eliminate this before deploying.
 
 if(!cached_mode) {
@@ -379,11 +379,11 @@ if(refresh_download_data) {
   #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
   downloads_per_month <- reduce_to_category(API_requests_month,"CKAN Resource Download Request") #This reduces to downloads
   
-  if(include_API_calls) {
-    API_calls_per_month <- reduce_to_category(API_requests_month,"CKAN API Request")
-    API_calls_per_month <- rename(API_calls_per_month,
-                                  c("totalEvents"="Month of API calls","uniqueEvents"="Month of unique API calls"))
-  }
+#  if(include_API_calls) { # This is for the 30-day API calls.
+#    API_calls_per_month <- reduce_to_category(API_requests_month,"CKAN API Request")
+#    API_calls_per_month <- rename(API_calls_per_month,
+#                                  c("totalEvents"="Month of API calls","uniqueEvents"="Month of unique API calls"))
+#  }
   all_API_requests <- get_API_requests_gar("2015-10-15",yesterday,p_Id,production)
 #  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
   #all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
@@ -397,7 +397,7 @@ if(refresh_download_data) {
     
   df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
   if(include_API_calls) {
-    df_downloads <- merge(df_downloads,API_calls_per_month,by="eventLabel")
+    #df_downloads <- merge(df_downloads,API_calls_per_month,by="eventLabel")
     df_downloads <- merge(df_downloads,all_API_calls,by="eventLabel")
   }
   df_downloads <- name_datasets(df_downloads)
@@ -429,6 +429,7 @@ if(refresh_download_data) {
                                                              "All-time downloads",
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
+                                                             "All-time API calls",
                                                              "Downloads per pageview",
                                                              "Resource ID")]
   
@@ -453,6 +454,7 @@ if(refresh_download_data) {
                                                              "All-time downloads",
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
+#                                                             "All-time API calls",
                                                              "Resources")]
   
   
@@ -467,6 +469,7 @@ if(refresh_download_data) {
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
                                    "All.time.pageviews"="All-time pageviews",
+                                   "All.time.API.calls"="All-time API calls",
                                    "Downloads.per.pageview"="Downloads per pageview",
                                    "Resource.ID"="Resource ID"))
   
@@ -477,7 +480,8 @@ if(refresh_download_data) {
                                    "X30.day.pageviews"="30-day pageviews", 
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
-                                   "All.time.pageviews"="All-time pageviews"))
+                                   "All.time.pageviews"="All-time pageviews"))#,
+                                   #"All.time.API.calls"="All-time API calls"))
 }
 
 d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
@@ -550,7 +554,10 @@ d0 <- d0[c("Package","Dataset",
            "30-day pageviews",
            "All-time downloads",
            "All-time unique downloads",
-           "All-time pageviews")]
+           "All-time pageviews",
+           "All-time API calls")]
+
+d0 <- rename(d0,c("All-time API calls"="All-time API calls*"))
 
 columnDefs = list(list(
   targets = c(3), # The column to convert from a vector/list/whatever into a sparkline.
@@ -726,6 +733,7 @@ ui <- shinyUI(fluidPage(
       ),
       tabPanel("Dataset stats",DT::dataTableOutput('downloads_table'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
+               HTML("<div style='font-size:80%'>* API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
                downloadButton('downloadDatasetData', 'Download')),
       tabPanel("Package stats",dataTableOutput('by_package'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
