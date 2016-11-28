@@ -356,8 +356,11 @@ if(is.null(site_stats)) {
 month_list <- paste(month.abb[site_stats$month],site_stats$year,sep=" ")
 numerical_month_list <- paste(site_stats$year,sprintf("%02d", site_stats$month),sep="/")
 year_month <- numerical_month_list
-site_stats <- cbind(year_month,site_stats[,!(names(site_stats) %in% c("year","month","Year+month"))])
+site_stats <- cbind(year_month,site_stats[,!(names(site_stats) %in% c("X","year","month","Year+month","Year.month"))])
 site_stats <- rename(site_stats, c("year_month"="year/month"))
+site_stats <- rename(site_stats, 
+                     c("pageviews.per.session"="pageviews per session", 
+                       "average.session.duration..minutes."="average session duration (minutes)"))
 
 site_stats_reversed <- site_stats[order(site_stats$"year/month",decreasing=TRUE),]
 
