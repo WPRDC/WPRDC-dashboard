@@ -10,7 +10,8 @@ source("authentication.R") # Look up the p_Id, client ID, and client
 # value of the production variable, which sets whether this is a
 # production or development environment.
 
-authorize_json_request <- function(url,API_key) {
+authorize_json_request <- function(url,API_key) { # This function dies with an error
+  # when there is no Internet connection.
   req <- httr::GET(url, httr::add_headers(Authorization = API_key))
   json <- httr::content(req, as = "text")
   json_data <- fromJSON(json)

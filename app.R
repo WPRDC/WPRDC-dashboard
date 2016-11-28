@@ -28,7 +28,7 @@ library(htmlwidgets)
 library(sparkline)
 
 
-suppressMessages(library(dplyr))
+suppressMessages(library(dplyr)) # data_frame comes from dplyr.
 library(plyr) # Loaded to use the rename function.
 library(httr)
 #library(RGoogleAnalytics)
@@ -280,7 +280,7 @@ if(!cached_mode) {
 today <- Sys.Date()
 yesterday <- today - days(x=1)
 if(!production) {
-  setwd("/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard")
+    setwd("/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard")
 } else {
   source("setwd_to_file_location.R")
 }
@@ -332,8 +332,19 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
 #  }
 #}
 
+site_stats_cache_file = "cached_site_stats.csv"
+site_stats <- NULL
+if(!cached_mode) {
+  site_stats <- get_site_stats() # This function can fail if there is no Internet connection.
+  if(!is.null(site_stats)) {
+    write.csv(site_stats, site_stats_cache_file, row.names=TRUE)    
+  } else if(file.exists(site_stats_cache_file)) {
+    site_stats <- read.csv(site_stats_cache_file)
+  }
+} else if(file.exists(site_stats_cache_file)) {
+  site_stats <- read.csv(site_stats_cache_file)
+}
 
-site_stats <- get_site_stats()
 if(is.null(site_stats)) {
   site_stats <- read_excel(cached_metrics_file, sheet = "(dashboard | site stats)")
   site_stats$`average session duration (minutes)` <- site_stats$`average session duration (seconds)`/60
@@ -355,14 +366,31 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # produces a list like "2015-10" "2015-11" "2015-12" ...
 # Add these to the spreadsheet as a "year_month" column to search for.
 
-if(!file.exists("monthly_dataset_downloads.csv")) {
-  monthly_dataset_downloads <- get_monthly_dataset_downloads()
+
+# This caching system assumes that the current month is left off of 
+# the monthly-downloads sparkline. [X] Verify this.
+monthly_downloads_cache <- "monthly_dataset_downloads.csv"
+if(!file.exists(monthly_downloads_cache)) {
+  cache_month <- -1
 } else {
-  monthly_dataset_downloads <- read.csv("monthly_dataset_downloads.csv")
+  cache_month <- month(as.Date(file.info(monthly_downloads_cache)$mtime))
+  if(cached_mode) {
+    cache_month <- month(Sys.Date())
+  }
 }
-write.csv(monthly_dataset_downloads, "monthly_dataset_downloads.csv", row.names=FALSE)
+if(month(Sys.Date()) != cache_month) {
+  monthly_dataset_downloads <- get_monthly_dataset_downloads()
+  if(!is.null(monthly_dataset_downloads)) {
+    write.csv(monthly_dataset_downloads, monthly_downloads_cache, row.names=FALSE) 
+  }
+} else {
+  monthly_dataset_downloads <- read.csv(monthly_downloads_cache)  
+}
 
 
+# The deployed version of the app is able to regenerate all of the other
+# cached CSV files but gets stuck on df_downloads_and_pageviews and 
+# package_downloads_and_pageviews. Why?
 refresh_download_data <- FALSE
 if(!file.exists("df_downloads_and_pageviews.csv")) {
   refresh_download_data <- TRUE
@@ -464,6 +492,12 @@ if(refresh_download_data) {
   
 #  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
   write.csv(package_downloads_and_pageviews, "package_downloads_and_pageviews.csv", row.names=FALSE)
+  ###
+  # [ ] Eventually separate this entire if clause into a separate function
+  # that can be called by a cron job to refresh these two CSV files.
+  # This function accepts today, yesterday, and include_API_calls (and maybe something else
+  # and returns package_downloads_and_pageviews and df_downloads_and_pageviews).
+  
 } else {
   df_downloads_and_pageviews <- read.csv("df_downloads_and_pageviews.csv")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews, 
@@ -541,11 +575,14 @@ df_datasets_sparks <- rename(df_datasets_sparks,
 
 df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
 
-df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
+df_downloads_and_pageviews <- df_datasets_sparks
 
 dataset_download_df <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 reformat <- function(x) {paste(as.vector(x),collapse="|")}
 dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,reformat))
+
+df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
+
 
 d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
@@ -605,8 +642,6 @@ the_downloads_table <- d1
 # JavaScript) into the R Shiny dashboard) should be faster.
 
 c_uses_ws <- read_excel(cached_metrics_file, sheet = "Classroom Uses")
-gadp <- read_excel(cached_metrics_file, sheet = "Google analytics Data Portal")
-gadp$`Pages/Session` <- as.numeric(as.character(gadp$`Pages/Session`))
 #The column labelled "Average Session Duration (minutes)" gets screwed up
 #for two reasons: 1) The colon separating minutes and seconds is misinterpreted
 #when importing into R. 2) The parentheses from the column header are 
@@ -673,7 +708,7 @@ outreach_events_table$Type <- proper(outreach_events_table$Type)
 #outreach_events_table$Date <- as.Date(outreach_events_table$Date,as.Date("1899-12-30"))
 #recent_events <- within_n_days_of(outreach_events_table,90,today)
 outreach_events_table$Date <- as.numeric(outreach_events_table$Date)
-day_number <- difftime(Sys.Date() , as.Date("1900-01-01"), units = c("days"))+2
+day_number <- difftime(Sys.Date(), as.Date("1900-01-01"), units = c("days"))+2
 recent_events <- outreach_events_table[(day_number-as.numeric(outreach_events_table$Date)) <= 90,]
 
 # Prepare matrices for presenting users/sessions/pageviews plots.
