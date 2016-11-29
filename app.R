@@ -68,17 +68,19 @@ categorize_class_uses <- function(df) {
     row <- df[i,]
     institution <- row$Institution
     term <- row$Semester
-    if(!(grepl("CMU|Pitt",institution) > 0))
-      institution <- "Other"
-    if(!(institution %in% insts)) # Construct insts and ts as ordered unique
-      insts <- append(insts,institution)   # lists of institutions and terms.
-    if(!(term %in% ts))
-      ts <- append(ts,term)
-    key <- class_key(term,institution)
-    if(!(key %in% keys(uses_by_term))){
-      uses_by_term[[key]] <- 0
+    if(!is.na(term) & !is.na(institution)) {
+      if(!(grepl("CMU|Pitt",institution) > 0))
+        institution <- "Other"
+      if(!(institution %in% insts)) # Construct insts and ts as ordered unique
+        insts <- append(insts,institution)   # lists of institutions and terms.
+      if(!(term %in% ts))
+        ts <- append(ts,term)
+      key <- class_key(term,institution)
+      if(!(key %in% keys(uses_by_term))){
+        uses_by_term[[key]] <- 0
+      }
+      uses_by_term[[key]] <- uses_by_term[[key]]+1
     }
-    uses_by_term[[key]] <- uses_by_term[[key]]+1
   }
   
   counts <- c()
@@ -256,6 +258,21 @@ group_by_package <- function(df) {
   return(grouped)
 }
 
+prepend_Month <- function(df) {
+  # Since there are a bunch of Google Sheets sheets with date ranges like
+  # "2015 Oct 15 - Nov 14", which are unsortable, the solution we've come up
+  # with is to convert the rownames (which are dumbly string-versions of integers
+  # by default) into integers to represent the month.
+  Month <- as.integer(rownames(df))
+  if(df$Date[1] == "10/15 launch") {
+    Month <- Month - 1 
+  }
+  return(cbind(Month,df))
+}
+
+reverse_sort_by_Month <- function(df) {
+  return(df[order(df$"Month",decreasing=TRUE),])
+}
 stacked_barplot_matrix <- function(v) {
   data <- matrix(c(v[seq(1,length(v)-1)],0*v,v[c(length(v))]),nrow=2,byrow=T)
   return(data)
@@ -684,6 +701,10 @@ cmu_uses <- nrow(c_uses_ws[grep("CMU",c_uses_ws$Institution),])
 classroom_uses <- nrow(c_uses_ws)
 
 df_uses <- categorize_class_uses(c_uses_ws)
+index <- as.integer(rownames(df_uses))
+df_uses <- cbind(index,df_uses)
+df_uses <- df_uses[order(df_uses$"index",decreasing=TRUE),]
+
 
 other_web_stats <- read_excel(cached_metrics_file, sheet = "Other Web Stats")
 other_web_stats <- other_web_stats[-c(4,5),] # Eliminating rows 3 and 4 (which 
@@ -692,23 +713,31 @@ publishers <- other_web_stats[,(names(other_web_stats) %in%
                                   c("Date","Total Publishers","Academic Publishers",
                                     "Government Publishers","Non-Profit Publishers",
                                     "Other Publishers"))]
+publishers <- reverse_sort_by_Month(prepend_Month(publishers))
 
 etl_process_count <- other_web_stats[,(names(other_web_stats) %in% 
                                          c("Data with Automated ETL (Non GIS)"))]
 etl_processes <- other_web_stats[,(names(other_web_stats) %in% 
                                      c("Date","Data with Automated ETL (Non GIS)",
                                        "Automated ETL list"))]
-etl_processes <- etl_processes[-c(1),]
+etl_processes <- rename(etl_processes, 
+                     c("Data with Automated ETL (Non GIS)"="Datasets with Automated Imports (Non-GIS)", 
+                       "Automated ETL list"="List of Datasets with Automated Import Processes"))
+etl_processes <- etl_processes[-c(1),] # Elimate first row
+etl_processes <- reverse_sort_by_Month(prepend_Month(etl_processes))
 
 misc_other_stats <- other_web_stats[,(names(other_web_stats) %in% 
                                         c("Date","Discussion Posts",
                                           "CKAN data requests"))]
 misc_other_stats <- misc_other_stats[-c(1),]
 misc_other_stats[,2:3] <- sapply(misc_other_stats[, 2:3], as.integer)
+misc_other_stats <- reverse_sort_by_Month(prepend_Month(misc_other_stats))
 
 social_media <- read_excel(cached_metrics_file, sheet = "Social Media")
 social_media <- social_media[-c(3,4),]
 twitter_followers <- social_media[,(names(social_media) %in% c("Period","Twitter Followers, End of period"))]
+Month <- as.integer(rownames(twitter_followers))
+twitter_followers <- reverse_sort_by_Month(cbind(Month,twitter_followers))
 
 media <- read_excel(cached_metrics_file, sheet = "Media")
 media_mentions <- nrow(media) - 1
@@ -799,7 +828,7 @@ ui <- shinyUI(fluidPage(
       #         h2("Cumulative statistics"),
       #h2('Download stats'),
       tabPanel("Other web stats",h3("Publishers"),dataTableOutput('publishers'),
-               h3("ETL Processes"),dataTableOutput('etl'),
+               h3("Automated Data Imports"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
       tabPanel("Dataset stats",DT::dataTableOutput('downloads_table'),
@@ -814,15 +843,26 @@ ui <- shinyUI(fluidPage(
                HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
                             classroom_uses, pitt_uses, cmu_uses))),
       tabPanel("Outreach",
-               h4("Media mentions: ", media_mentions),
-               hr(),
-               dataTableOutput('twitter_followers'),
+               HTML("<center style='font-size:140%'>Breakdown of outreach/events</center>"),
+               #<span style='font-size:75%'>(Last 90 days in orange)</span>
+               plotOutput("event_types_plot"),
+               #fluidRow(
+               #  splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
+               #)
                HTML("<hr>"),
-               h4("Total outreach instances & events: ", outreach_and_events),
-               HTML("<center style='font-size:140%'>Breakdown of outreach/events<br><span style='font-size:75%'>(Last 90 days in orange)</span></center>"),
                fluidRow(
-                 splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
-               )
+                 splitLayout(cellWidths = c("50%", "50%"), 
+                             HTML("<center style='font-size:170%'>Total 
+                                  outreach instances & events: <b>",outreach_and_events,
+                                  "</b></center>"),
+                             HTML("<center style='font-size:170%'>Media mentions:
+                                  <b>",media_mentions,
+                                  "</b></center>")
+                             )
+               ),
+               hr(),
+               HTML("<center style='font-size:140%'>Twitter-follower counts</center>"),
+               dataTableOutput('twitter_followers')
       )
     )
     )
@@ -849,7 +889,7 @@ server <- shinyServer(function(input, output) {
   },options = list(lengthMenu = c(12, 24, 48), pageLength = 12),rownames=FALSE)
   output$uses_table = DT::renderDataTable({
     df_uses
-  },rownames=FALSE)
+  },options = list(lengthMenu = c(20, 30, 50), pageLength = 20),rownames=FALSE)
   output$downloads_table = DT::renderDataTable({
     the_downloads_table
   })
@@ -901,13 +941,17 @@ server <- shinyServer(function(input, output) {
     twitter_followers
   },rownames=FALSE)
   output$event_types_plot = renderPlot({
-    dotchart(sort(table(outreach_events_table$Type),decreasing=FALSE),
-             las=1,xlab="Count",col=c("#0033ff"))
+    ## lots of extra space in the margin for side 1
+    op <- par(mar = c(4,18,4,18) + 0.1)
+    barplot(sort(table(outreach_events_table$Type),decreasing=FALSE),
+             las=1,xlab="Count",col=c("#0033ff"),horiz=TRUE)
+    par(op) ## reset
+    
   })
-  output$recent_event_types_plot = renderPlot({
-    dotchart(sort(table(recent_events$Type),decreasing=FALSE),
-             las=1,xlab="Count",col=c("#ff9900"))
-  })
+  #output$recent_event_types_plot = renderPlot({
+  #  dotchart(sort(table(recent_events$Type),decreasing=FALSE),
+  #           las=1,xlab="Count",col=c("#ff9900"))
+  #})
 })
 
 # Run the application 
