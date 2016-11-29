@@ -261,6 +261,35 @@ stacked_barplot_matrix <- function(v) {
   return(data)
 }
 
+adjust_axis_and_plot <- function(mtrx,y_label,month_list,hues) {
+  # R's barplot function has a weird tendency to make the y-axis too short
+  # (if you want every point in the plot to be within the y-axis range).
+  # If you try to make the scale (0,4500), R rounds it down to (0,4000),
+  # presumably because 4500 = 9*500 (9*y_units) and R prefers multiples of
+  # like 4, 5, or 6, so the tick marks can be distributed with nice round
+  # spacings. It likes 1000 as a maximum, since 1000 = 5*200.
+  # It doesn't like 24000 as a maximum for a value of 20730 (rounding it
+  # down to 20000), but it does like 25000.
+  # Going with 10^(floor(log10(y_max)))/2 works OK so far, but for 4258, it 
+  # only results in 4000 being used as the maximum.
+  
+  # I eventually "solved" this by switching from 
+  #       y_units_1 <- 10^(floor(log10(y_max)))
+  # to
+  #       y_units_1 <- 10^(round(log10(y_max)))
+  # though this does result in a maximum of 5000 for a value of 4258.
+  y_max <- max(mtrx)
+  #y_units_1 <- 10^(floor(log10(y_max)))
+  y_units_1 <- 10^(round(log10(y_max)))
+  y_units_2 <- y_units_1/2
+  y_lim_1 <- y_units_1*ceiling(y_max/y_units_1)
+  y_lim_2 <- y_units_2*ceiling(y_max/y_units_2)
+  y_lim <- y_lim_2
+  barplot(mtrx,names.arg=month_list,ylab=y_label,xlab="",
+          col=hues,cex.names=1.5,cex.lab=1.5,ylim=c(0,y_lim))
+}
+
+
 within_n_days_of <- function(df,n,last_date) {
   difference_in_days <- today-as.Date(df$Date,"%m/%d/%Y")
   df <- df[difference_in_days <= n,]
@@ -807,14 +836,11 @@ server <- shinyServer(function(input, output) {
       if (input$plot_type == "Users") {
 #      barplot(site_stats$users,names.arg=month_list,ylab="Users by Month",xlab="",
 #              col=c("#0066cc"),cex.names=1.5,cex.lab=1.5)
-      barplot(sbm_users,names.arg=month_list,ylab="Users by Month",xlab="",
-              col=hues,cex.names=1.5,cex.lab=1.5)
+      adjust_axis_and_plot(sbm_users,"Users by Month",month_list,hues)
     } else if (input$plot_type == "Sessions") {
-      barplot(sbm_sessions,names.arg=month_list,ylab="Sessions by Month",xlab="",
-              col=hues,cex.names=1.5,cex.lab=1.5)
+      adjust_axis_and_plot(sbm_sessions,"Sessions by Month",month_list,hues)
     } else if (input$plot_type == "Pageviews") {
-      barplot(sbm_pageviews,names.arg=month_list,ylab="Pageviews by Month",xlab="",
-              col=hues,cex.names=1.5,cex.lab=1.5)
+      adjust_axis_and_plot(sbm_pageviews,"Pageviews by Month",month_list,hues)
     }
     legend("bottomleft",inset=c(0.05,0.05), fill=rev(hues), legend=c("This month","Previous months"))
   })
