@@ -26,7 +26,7 @@ library(data.table)
 library(DT)
 library(htmlwidgets)
 library(sparkline)
-
+library(lattice)
 
 suppressMessages(library(dplyr)) # data_frame comes from dplyr.
 library(plyr) # Loaded to use the rename function.
@@ -313,7 +313,7 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- FALSE
+cached_mode <- TRUE
 include_API_calls <- TRUE #FALSE # Switching this will conflict with a cached version of 
 # the downloaded data, so eliminate this before deploying.
 
@@ -831,14 +831,15 @@ ui <- shinyUI(fluidPage(
                h3("Automated Data Imports"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
-      tabPanel("Dataset stats",DT::dataTableOutput('downloads_table'),
+      tabPanel("Dataset stats (beta)",DT::dataTableOutput('downloads_table'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                HTML("<div style='font-size:80%'>* API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
                downloadButton('downloadDatasetData', 'Download')),
       tabPanel("Package stats",dataTableOutput('by_package'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                downloadButton('downloadPackageData', 'Download')),
-      tabPanel("Classroom uses", 
+      tabPanel("Classroom uses",
+               plotOutput("uses_plot"),
                dataTableOutput('uses_table'),
                HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
                             classroom_uses, pitt_uses, cmu_uses))),
@@ -887,6 +888,23 @@ server <- shinyServer(function(input, output) {
   output$analytics_table = DT::renderDataTable({
     site_stats_reversed[,!(names(site_stats_reversed) %in% c("year","month"))] #df_analytics
   },options = list(lengthMenu = c(12, 24, 48), pageLength = 12),rownames=FALSE)
+  output$uses_plot = renderPlot({
+    ## lots of extra space in the margin for sides 2 and 4 (left and right)
+    op <- par(mar = c(4,15,4,15) + 0.1)
+    counts <- xtabs(count ~ reorder(institution,index) + reorder(term,index), df_uses)
+    barplot(counts, main="Classroom uses",
+            xlab="Term", ylab="Classes", col=c("#1295ba","#dd731c","#2bba12"),
+            legend = rownames(counts), beside=TRUE, cex.names=1.5, cex.lab=1.5)
+    #chrt <- barchart(count~reorder(term,index),data=df_uses,groups=reorder(institution,index),
+    #         col=c("#1295ba","#c12e38","#2bba12"),
+    #         ylab=list(label="Count",cex=1.7),
+    #         scales=list(cex=c(1.7,1.7))) #Pitt blue and gold: #1c2957, #cdb87d
+    # CMU red: #cc0023
+    #update(chrt, par.settings = list(fontsize = list(text = 8, points = 4))) This doesn't
+    #work since you need to adjust the grid parameters to affect lattice plots:
+    
+    par(op) ## reset
+  })
   output$uses_table = DT::renderDataTable({
     df_uses
   },options = list(lengthMenu = c(20, 30, 50), pageLength = 20),rownames=FALSE)
@@ -941,12 +959,11 @@ server <- shinyServer(function(input, output) {
     twitter_followers
   },rownames=FALSE)
   output$event_types_plot = renderPlot({
-    ## lots of extra space in the margin for side 1
+    ## lots of extra space in the margin for sides 2 and 4 (left and right)
     op <- par(mar = c(4,18,4,18) + 0.1)
     barplot(sort(table(outreach_events_table$Type),decreasing=FALSE),
-             las=1,xlab="Count",col=c("#0033ff"),horiz=TRUE)
+             las=1,xlab="Count",col=c("#0066cc"),horiz=TRUE)
     par(op) ## reset
-    
   })
   #output$recent_event_types_plot = renderPlot({
   #  dotchart(sort(table(recent_events$Type),decreasing=FALSE),
