@@ -218,7 +218,7 @@ name_datasets <- function(df) {
 }
 
 group_by_package <- function(df) {
-  # Eliminate the datasets and sum download counts over all datasets
+  # Eliminate the datasets (resources) and sum download counts over all datasets (resources)
   # in a given package.
   
   # Again, there's surely a better way to do this. 
@@ -314,7 +314,9 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
-cached_mode <- TRUE
+################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
+
+cached_mode <- FALSE
 include_API_calls <- TRUE #FALSE # Switching this will conflict with a cached version of 
 # the downloaded data, so eliminate this before deploying.
 
@@ -628,7 +630,7 @@ df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
 df_downloads_and_pageviews <- df_datasets_sparks
 
 dataset_download_df <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
-reformat <- function(x) {paste(as.vector(x),collapse="|")}
+reformat <- function(x) {paste(as.vector(x),collapse="|")} # inline function
 dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,reformat))
 
 df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
@@ -748,7 +750,7 @@ outreach_and_events <- nrow(outreach_events_table) - 1
 outreach_fields <- outreach_events_table[1,]
 colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
 outreach_events_table <- outreach_events_table[-c(1),]
-proper <- function(x) paste0(toupper(substr(x, 1, 1)), tolower(substring(x, 2)))
+proper <- function(x) paste0(toupper(substr(x, 1, 1)), tolower(substring(x, 2))) # inline function
 outreach_events_table$Type <- proper(outreach_events_table$Type)
 
 # Due to a known deficiency in R and readxl (and really Excel 

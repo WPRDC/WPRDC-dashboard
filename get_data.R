@@ -219,7 +219,7 @@ get_pageviews_gar <- function(start_date,end_date,
     return(pageviews)
   } else {
     return(NULL) # The backup option should really be better than returning NULL.
-    # Maybe we should fall back to the .httr-whatehver authentication method, then
+    # Maybe we should fall back to the .httr-whatever authentication method, then
     # fall back to an old cached CSV before finally giving up.
   }
 }
