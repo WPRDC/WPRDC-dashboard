@@ -3,6 +3,7 @@
 
 options(stringsAsFactors = FALSE)
 
+production<-FALSE
 library(hash)
 library(lubridate)
 library(shiny)
@@ -647,7 +648,8 @@ d0 <- d0[c("Package","Dataset",
            "All-time pageviews",
            "All-time API calls")]
 
-d0 <- rename(d0,c("All-time API calls"="All-time API calls*"))
+d0 <- rename(d0,c("All-time API calls"="All-time API calls*","Dataset"="Resource"))
+dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
 
 columnDefs = list(list(
   targets = c(3), # The column to convert from a vector/list/whatever into a sparkline.
@@ -831,7 +833,7 @@ ui <- shinyUI(fluidPage(
                h3("Automated Data Imports"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
-      tabPanel("Dataset stats (beta)",DT::dataTableOutput('downloads_table'),
+      tabPanel("Resource stats (beta)",DT::dataTableOutput('downloads_table'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                HTML("<div style='font-size:80%'>* API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
                downloadButton('downloadDatasetData', 'Download')),
@@ -892,7 +894,7 @@ server <- shinyServer(function(input, output) {
     ## lots of extra space in the margin for sides 2 and 4 (left and right)
     op <- par(mar = c(4,15,4,15) + 0.1)
     counts <- xtabs(count ~ reorder(institution,index) + reorder(term,index), df_uses)
-    barplot(counts, main="Classroom uses",
+    barplot(counts, 
             xlab="Term", ylab="Classes", col=c("#1295ba","#dd731c","#2bba12"),
             legend = rownames(counts), beside=TRUE, cex.names=1.5, cex.lab=1.5)
     #chrt <- barchart(count~reorder(term,index),data=df_uses,groups=reorder(institution,index),
@@ -915,7 +917,7 @@ server <- shinyServer(function(input, output) {
     
     # This function returns a string which tells the client
     # browser what name to use when saving the file.
-    filename = "dataset_downloads_and_pageviews.csv",
+    filename = "resource_downloads_and_pageviews.csv",
     
     # This function should write data to a file given to it by
     # the argument 'file'.
@@ -960,7 +962,7 @@ server <- shinyServer(function(input, output) {
   },rownames=FALSE)
   output$event_types_plot = renderPlot({
     ## lots of extra space in the margin for sides 2 and 4 (left and right)
-    op <- par(mar = c(4,18,4,18) + 0.1)
+    op <- par(mar = c(4,18,1,18) + 0.1)
     barplot(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#0066cc"),horiz=TRUE)
     par(op) ## reset
