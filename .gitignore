@@ -2,3 +2,7 @@
 .httr-oauth
 authentication.R
 wprdc_profile.R
+.RData
+.RHistory
+*.csv
+*.xlsx
