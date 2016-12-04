@@ -335,26 +335,8 @@ if(!production) {
   source("setwd_to_file_location.R")
 }
 
-#if(!cached_mode) {
-#  if(production) {
-#    if(file.exists("/srv/shiny-server/metrics")) {
-#      setwd("/srv/shiny-server/metrics")
-#    }
-#  }
-#}
-#df_analytics <- get_analytics(2015,10,p_Id,client_id,client_secret,production)
-
 cached_metrics_file = "cached_metrics_sheet.xlsx"
-
-refresh_google_sheets_data <- FALSE
-
-if(!file.exists(cached_metrics_file)) {
-  refresh_google_sheets_data <- TRUE
-} else if(!cached_mode) {
-  if(Sys.time()-dminutes(59.11) > c(file.info(cached_metrics_file)$mtime)) {
-    refresh_google_sheets_data <- TRUE
-  }
-}
+refresh_google_sheets_data <- force_refresh | refresh_boolean(cached_metrics_file,59.11,cached_mode)
 
 if((!cached_mode) & (refresh_google_sheets_data)) {
   if(production) {
@@ -369,6 +351,7 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
   }
 }
 
+# [ ] Incorporate time of day in daily refreshes.
 site_stats_cache_file = "cached_site_stats.csv"
 site_stats <- NULL
 if(!cached_mode) {
@@ -434,8 +417,8 @@ if(month(Sys.Date()) != cache_month) {
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"
-refresh_resource_info <- to_refresh_or_not_to_refresh(resource_d_and_p_file,30)
-refresh_package_info <- to_refresh_or_not_to_refresh(package_d_and_p_file,30)
+refresh_resource_info <- refresh_boolean(resource_d_and_p_file,30,cached_mode)
+refresh_package_info <- refresh_boolean(package_d_and_p_file,30,cached_mode)
 
 refresh_download_data <- refresh_resource_info | refresh_package_info | force_refresh
 

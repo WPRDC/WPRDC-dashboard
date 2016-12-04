@@ -224,7 +224,13 @@ get_pageviews_gar <- function(start_date,end_date,
   }
 }
 
-to_refresh_or_not_to_refresh <- function(datafile,refresh_period) {
+refresh_boolean <- function(datafile,refresh_period,cached_mode) {
+  # If the file does not exist, definitely refresh it.
+  # Otherwise, as long as we are not in cached mode, check whether
+  # the file has outlived its freshness date and decide whether to 
+  # refresh based on that.
+  # "cached_mode" being true can be interpreted as "Don't attempt
+  # to refresh the data unless you have no choice."
   refresh_data <- FALSE
   if(!file.exists(datafile)) {
     refresh_data <- TRUE
@@ -235,6 +241,13 @@ to_refresh_or_not_to_refresh <- function(datafile,refresh_period) {
   }
   return(refresh_data)
 }
+# Consider replacing refresh_boolean with !refresh_boolean, renaming it 
+# use_cache, and writing it like this:
+#  use_cache <- TRUE
+#  if(!file.exists(datafile) | (Sys.time()-dminutes(refresh_period) > c(file.info(datafile)$mtime))) {
+#    use_cache <- FALSE
+#  } # Can we really get away without using cached_mode here?
+
 
 get_site_stats <- function() {
   # Pull WPRDC stats from a dedicated data repository on wprdc.org.
