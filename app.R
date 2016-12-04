@@ -353,8 +353,10 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
 
 # [ ] Incorporate time of day in daily refreshes.
 site_stats_cache_file = "cached_site_stats.csv"
+refresh_site_stats <- force_refresh | refresh_boolean(site_stats_cache_file,24*60,cached_mode)
+
 site_stats <- NULL
-if(!cached_mode) {
+if(refresh_site_stats & (hour(Sys.time()) > 6)) {
   site_stats <- get_site_stats() # This function can fail if there is no Internet connection.
   if(!is.null(site_stats)) {
     write.csv(site_stats, site_stats_cache_file, row.names=TRUE)    
