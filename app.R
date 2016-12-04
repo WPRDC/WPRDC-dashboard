@@ -351,7 +351,6 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
   }
 }
 
-# [ ] Incorporate time of day in daily refreshes.
 site_stats_cache_file = "cached_site_stats.csv"
 refresh_site_stats <- force_refresh | refresh_boolean(site_stats_cache_file,24*60,cached_mode)
 
@@ -392,30 +391,20 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # Add these to the spreadsheet as a "year_month" column to search for.
 
 
-# This caching system assumes that the current month is left off of 
-# the monthly-downloads sparkline. ** Actually, this is no longer true. **
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
-if(!file.exists(monthly_downloads_cache)) {
-  cache_month <- -1
-} else {
-  cache_month <- month(as.Date(file.info(monthly_downloads_cache)$mtime))
-  if(cached_mode) {
-    cache_month <- month(Sys.Date())
-  }
-}
-if(month(Sys.Date()) != cache_month) {
+refresh_md <- force_refresh | refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
+
+monthly_dataset_downloads <- NULL
+if(refresh_md & (hour(Sys.time()) > 6)) {
   monthly_dataset_downloads <- get_monthly_dataset_downloads()
   if(!is.null(monthly_dataset_downloads)) {
-    write.csv(monthly_dataset_downloads, monthly_downloads_cache, row.names=FALSE) 
+    write.csv(monthly_dataset_downloads, monthly_downloads_cache, row.names=FALSE)
+  } else if(file.exists(monthly_downloads_cache)) {
+    monthly_dataset_downloads <- read.csv(monthly_downloads_cache)
   }
-} else {
-  monthly_dataset_downloads <- read.csv(monthly_downloads_cache)  
+} else if(file.exists(monthly_downloads_cache)) {
+  monthly_dataset_downloads <- read.csv(monthly_downloads_cache)
 }
-
-
-# The deployed version of the app is able to regenerate all of the other
-# cached CSV files but gets stuck on df_downloads_and_pageviews and 
-# package_downloads_and_pageviews. Why?
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"
