@@ -224,6 +224,18 @@ get_pageviews_gar <- function(start_date,end_date,
   }
 }
 
+to_refresh_or_not_to_refresh <- function(datafile,refresh_period) {
+  refresh_data <- FALSE
+  if(!file.exists(datafile)) {
+    refresh_data <- TRUE
+  } else if(!cached_mode) {
+    if(Sys.time()-dminutes(refresh_period) > c(file.info(datafile)$mtime)) {
+      refresh_data <- TRUE
+    }
+  }
+  return(refresh_data)
+}
+
 get_site_stats <- function() {
   # Pull WPRDC stats from a dedicated data repository on wprdc.org.
   json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=9999"

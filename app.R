@@ -1,6 +1,8 @@
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 
+force_refresh <- FALSE
+
 options(stringsAsFactors = FALSE)
 
 library(hash)
@@ -367,19 +369,6 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
   }
 }
 
-#if(!cached_mode) {
-#  if(production) {
-#    googlesheets::gs_auth(token = "shiny_app_token.rds", cache = FALSE)
-#  }
-#  if(exists("metrics")) {
-#    rm(metrics)
-#  }
-#  metrics <- gs_key(sheet_key) # Access Performance Management spreadsheet
-#  if(exists("metrics")) {
-#    metrics %>% gs_download(to = cached_metrics_file, overwrite = TRUE)
-#  }
-#}
-
 site_stats_cache_file = "cached_site_stats.csv"
 site_stats <- NULL
 if(!cached_mode) {
@@ -442,19 +431,13 @@ if(month(Sys.Date()) != cache_month) {
 # The deployed version of the app is able to regenerate all of the other
 # cached CSV files but gets stuck on df_downloads_and_pageviews and 
 # package_downloads_and_pageviews. Why?
-refresh_download_data <- FALSE
-if(!file.exists("df_downloads_and_pageviews.csv")) {
-  refresh_download_data <- TRUE
-} else if (!file.exists("package_downloads_and_pageviews.csv")) {
-  refresh_download_data <- TRUE
-} else if(!cached_mode) {
-  if(Sys.time()-dminutes(15) > c(file.info("df_downloads_and_pageviews.csv")$mtime)) {
-    refresh_download_data <- TRUE
-  }
-  if(Sys.time()-dminutes(15) > c(file.info("package_downloads_and_pageviews.csv")$mtime)) {
-    refresh_download_data <- TRUE
-  }
-}
+
+resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
+package_d_and_p_file <- "package_downloads_and_pageviews.csv"
+refresh_resource_info <- to_refresh_or_not_to_refresh(resource_d_and_p_file,30)
+refresh_package_info <- to_refresh_or_not_to_refresh(package_d_and_p_file,30)
+
+refresh_download_data <- refresh_resource_info | refresh_package_info | force_refresh
 
 if(refresh_download_data) {
   API_requests_month <- get_API_requests_gar(today-days(x=30),yesterday,p_Id,production)
@@ -517,7 +500,7 @@ if(refresh_download_data) {
                                                              "Resource ID")]
   
 #  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
-  write.csv(df_downloads_and_pageviews, "df_downloads_and_pageviews.csv", row.names=FALSE)
+  write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
   
   downloads_by_package <- group_by_package(df_downloads)
   package_downloads_and_pageviews <- merge(downloads_by_package,df_pageviews_month,
@@ -542,7 +525,7 @@ if(refresh_download_data) {
   
   
 #  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
-  write.csv(package_downloads_and_pageviews, "package_downloads_and_pageviews.csv", row.names=FALSE)
+  write.csv(package_downloads_and_pageviews, package_d_and_p_file, row.names=FALSE)
   ###
   # [ ] Eventually separate this entire if clause into a separate function
   # that can be called by a cron job to refresh these two CSV files.
@@ -550,7 +533,7 @@ if(refresh_download_data) {
   # and returns package_downloads_and_pageviews and df_downloads_and_pageviews).
   
 } else {
-  df_downloads_and_pageviews <- read.csv("df_downloads_and_pageviews.csv")
+  df_downloads_and_pageviews <- read.csv(resource_d_and_p_file)
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews, 
                                  c("X30.day.downloads"="30-day downloads", 
                                    "X30.day.unique.downloads"="30-day unique downloads", 
@@ -562,7 +545,7 @@ if(refresh_download_data) {
                                    #"Downloads.per.pageview"="Downloads per pageview",
                                    "Resource.ID"="Resource ID"))
   
-  package_downloads_and_pageviews <- read.csv("package_downloads_and_pageviews.csv")
+  package_downloads_and_pageviews <- read.csv(package_d_and_p_file)
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews, 
                                  c("X30.day.downloads"="30-day downloads", 
                                    "X30.day.unique.downloads"="30-day unique downloads", 
