@@ -250,7 +250,6 @@ refresh_boolean <- function(datafile,refresh_period,cached_mode) {
 
 refresh_it <- function(data_getter,get_that_data,cache_file) {
   desired_data <- NULL
-  print(sprintf("0: %d", is.null(desired_data)))
   if(get_that_data) {
     desired_data <- data_getter()
     if(!is.null(desired_data)) {
