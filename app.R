@@ -3,7 +3,6 @@
 
 options(stringsAsFactors = FALSE)
 
-production<-FALSE
 library(hash)
 library(lubridate)
 library(shiny)
@@ -420,7 +419,7 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 
 
 # This caching system assumes that the current month is left off of 
-# the monthly-downloads sparkline. [X] Verify this.
+# the monthly-downloads sparkline. ** Actually, this is no longer true. **
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
 if(!file.exists(monthly_downloads_cache)) {
   cache_month <- -1
@@ -650,7 +649,7 @@ d0 <- d0[c("Package","Dataset",
            "All-time pageviews",
            "All-time API calls")]
 
-d0 <- rename(d0,c("All-time API calls"="All-time API calls*","Dataset"="Resource"))
+d0 <- rename(d0,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
 dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
 
 columnDefs = list(list(
@@ -802,12 +801,12 @@ ui <- shinyUI(fluidPage(
          ')
   )),
   # Application title
-  titlePanel("",windowTitle = "Data Center Metrics"),
+  titlePanel("",windowTitle = "Data Center Metrics (Beta)"),
   
   fluidRow(
     HTML("<div style='background-color:white;float:left;color:black;
          width:100%;margin:0;padding:0;left:0;
-         font-size:200%'>Data Center Metrics"),
+         font-size:200%'>Data Center Metrics (Beta)"),
     HTML("<span style='float:right'>"),
     img(src="images/small-WPRDC-logo-inverted.png"),
     HTML("</span>"),
@@ -835,10 +834,15 @@ ui <- shinyUI(fluidPage(
                h3("Automated Data Imports"),dataTableOutput('etl'),
                h3("Discussion Posts & Data Requests"),dataTableOutput('misc')
       ),
-      tabPanel("Resource stats (beta)",DT::dataTableOutput('downloads_table'),
+      tabPanel("Resource stats",DT::dataTableOutput('downloads_table'),
+               HTML("<div style='font-size:80%'>* A month-by-month list of downloads can be found <a href='https://data.wprdc.org/dataset/wprdc-statistics/resource/e8889e36-e4b1-4343-bb51-fb687eb9a2ff'>here</a>.</div>"),
+               HTML("<div style='font-size:80%'>** API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
-               HTML("<div style='font-size:80%'>* API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
-               downloadButton('downloadDatasetData', 'Download')),
+               downloadButton('downloadDatasetData', 'Download'),
+               shiny::actionButton(inputId='ab1', label="Download monthly-downloads data", 
+                                   icon = icon("th"), 
+                                   onclick ="window.open('https://data.wprdc.org/datastore/dump/d72725b1-f163-4378-9771-14ce9dad3002', '_blank')")
+      ),
       tabPanel("Package stats",dataTableOutput('by_package'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                downloadButton('downloadPackageData', 'Download')),
