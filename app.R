@@ -393,18 +393,7 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
 refresh_md <- force_refresh | refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
-
-monthly_dataset_downloads <- NULL
-if(refresh_md & (hour(Sys.time()) > 6)) {
-  monthly_dataset_downloads <- get_monthly_dataset_downloads()
-  if(!is.null(monthly_dataset_downloads)) {
-    write.csv(monthly_dataset_downloads, monthly_downloads_cache, row.names=FALSE)
-  } else if(file.exists(monthly_downloads_cache)) {
-    monthly_dataset_downloads <- read.csv(monthly_downloads_cache)
-  }
-} else if(file.exists(monthly_downloads_cache)) {
-  monthly_dataset_downloads <- read.csv(monthly_downloads_cache)
-}
+monthly_dataset_downloads <- refresh_it(get_monthly_dataset_downloads,(refresh_md & (hour(Sys.time()) > 6)),monthly_downloads_cache)
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"

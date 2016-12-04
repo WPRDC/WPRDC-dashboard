@@ -248,6 +248,21 @@ refresh_boolean <- function(datafile,refresh_period,cached_mode) {
 #    use_cache <- FALSE
 #  } # Can we really get away without using cached_mode here?
 
+refresh_it <- function(data_getter,get_that_data,cache_file) {
+  desired_data <- NULL
+  print(sprintf("0: %d", is.null(desired_data)))
+  if(get_that_data) {
+    desired_data <- data_getter()
+    if(!is.null(desired_data)) {
+      write.csv(desired_data, cache_file, row.names=FALSE)
+    } else if(file.exists(cache_file)) {
+      desired_data <- read.csv(cache_file)
+    }
+  } else if(file.exists(cache_file)) {
+    desired_data <- read.csv(cache_file)
+  }
+  return(desired_data)
+}
 
 get_site_stats <- function() {
   # Pull WPRDC stats from a dedicated data repository on wprdc.org.
