@@ -268,6 +268,64 @@ group_by_package <- function(df) {
   return(grouped)
 }
 
+generate_wide_dd <- function(monthly_df,id_field_name){
+  mdd <- monthly_df
+  names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname)
+  names(mdd)[names(mdd)=="Year.month"] <- "ym"
+  names(mdd)[names(mdd)==id_field_name] <- "id"
+  names(mdd)[names(mdd)==id_field_name] <- "id"
+  wide_mdd <- dcast(mdd,id ~ ym,value.var="Downloads") # Excludes "Unique downloads"
+  #as.list(as.data.frame(wdd))
+  return(wide_mdd)
+}
+    
+generate_history_frame <- function(wide_mdd){
+  ids <- wide_mdd[[1]]
+  
+  number_of_months <- length(colnames(wide_mdd))
+  x <- wide_mdd[c(2:number_of_months)]
+  history_rows <- t(x)
+  
+  wide_mdd_length <- length(row.names(wide_mdd))
+  #d0$Spark[1] <- list(history_rows[,1])
+  
+  for(k in 1:wide_mdd_length) {
+    if(k == 1) {
+      history_frame <- data_frame(id=ids[[k]],dl_history=0)
+      #dl_history=as.vector(history_rows[,k]))
+    } else {
+      history_frame <- rbind(history_frame, 
+                             c(ids[[k]],0))
+      #as.vector(history_rows[,k])))
+    } # I spent a huge amount of time trying to find a more R-ish way to do this, and 
+    history_frame$dl_history[k] <- list(history_rows[,k]) # in the end, the only approach
+  } # that I found that would work was creating a data frame with integer columns and 
+  # only then substituting a vector of integers for the download history field.
+  return(history_frame)
+}
+
+merge_history_with_df <- function(df,history_f,id_field_name,number_of_months) {
+  # Add sparkline data
+  df_with_sparks <- merge(df,history_f,
+                          by.x=id_field_name,by.y="id",all.x = TRUE)
+  df_with_sparks <- rename(df_with_sparks,
+                           c("dl_history"="Monthly downloads"))
+  
+  df_with_sparks[is.na(df_with_sparks)] <- list(rep(0,number_of_months-1))
+  return(df_with_sparks)  
+}
+
+reformat <- function(x) {paste(as.vector(x),collapse="|")}
+
+downloadable_version <- function(df_datasets_sparks){
+  # Set aside downloadable version of the dataframe
+  dataset_download_df <- df_datasets_sparks[order(-df_datasets_sparks$"30-day downloads"),]
+  #reformat <- function(x) {paste(as.vector(x),collapse="|")} # inline function
+  dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,
+                                                                 reformat))
+  return(dataset_download_df)
+}
+
 prepend_Month <- function(df) {
   # Since there are a bunch of Google Sheets sheets with date ranges like
   # "2015 Oct 15 - Nov 14", which are unsortable, the solution we've come up
@@ -403,7 +461,6 @@ refresh_mpd <- force_refresh | refresh_boolean(monthly_package_downloads_cache,2
 monthly_package_downloads <- refresh_it(get_monthly_package_downloads,
                                         (refresh_mpd & (hour(Sys.time()) == 6)) | !production,
                                         monthly_package_downloads_cache)
-View(monthly_package_downloads)
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"
@@ -529,8 +586,6 @@ if(refresh_download_data) {
                                    #"All.time.API.calls"="All-time API calls"))
 }
 
-d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
-
 #### Fancy manipulations to enable embedding of sparklines depicting dataset download histories.
 # How to add a column containing lists in R (which R makes difficult):
 # df$c <- list(c(0),c(1,4,9)) 
@@ -541,56 +596,24 @@ d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downl
 #d0$Spark <- 0                                   # This
 #d0$Spark[1] <- list(c(-3,2,-1,1,0,1,1,2,3,5,8)) # works!
 
-mdd <- monthly_dataset_downloads
-names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname)
-names(mdd)[names(mdd)=="Year.month"] <- "ym"
-names(mdd)[names(mdd)=="Resource ID"] <- "id"
-names(mdd)[names(mdd)=="Resource.ID"] <- "id"
-wide_mdd <- dcast(mdd,id ~ ym,value.var="Downloads") # Excludes "Unique downloads"
-#as.list(as.data.frame(wdd))
-r_ids <- wide_mdd[[1]]
+##### INPUTS: df_downloads_and_pageviews, monthly_dataset_downloads, id_field_name
+id_field_name <- "Resource ID"
+sparks_column <- 3
 
+wide_mdd <- generate_wide_dd(monthly_dataset_downloads,id_field_name)
 number_of_months <- length(colnames(wide_mdd))
-x <- wide_mdd[c(2:number_of_months)]
-history_rows <- t(x)
+history_frame <- generate_history_frame(wide_mdd)
 
-wide_mdd_length <- length(row.names(wide_mdd))
-#d0$Spark[1] <- list(history_rows[,1])
+##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
 
-for(k in 1:wide_mdd_length) {
-  if(k == 1) {
-    history_frame <- data_frame(id=r_ids[[k]],dl_history=0)
-                          #dl_history=as.vector(history_rows[,k]))
-  } else {
-    history_frame <- rbind(history_frame, 
-                       c(r_ids[[k]],0))
-                         #as.vector(history_rows[,k])))
-  } # I spent a huge amount of time trying to find a more R-ish way to do this, and 
-  history_frame$dl_history[k] <- list(history_rows[,k]) # in the end, the only approach
-} # that I found that would work was creating a data frame with integer columns and 
-# only then substituting a vector of integers for the download history field.
+df_datasets_sparks <- merge_history_with_df(df_downloads_and_pageviews,
+                                            history_frame,id_field_name,
+                                            number_of_months)
+dataset_download_df <- downloadable_version(df_datasets_sparks)
 
+df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c(id_field_name))]
 
-
-# aggregated_monthly_downloads should have two columns: resource_id and dl_history
-# aggregated_monthly_downloads$dl_history should look something like c(1,0,1,1,2,3,5,8)
-
-df_datasets_sparks <- merge(df_downloads_and_pageviews,history_frame,
-                                    by.x="Resource ID",by.y="id",all.x = TRUE)
-df_datasets_sparks <- rename(df_datasets_sparks,
-                                     c("dl_history"="Monthly downloads"))
-
-df_datasets_sparks[is.na(df_datasets_sparks)] <- list(rep(0,number_of_months-1))
-
-df_downloads_and_pageviews <- df_datasets_sparks
-
-dataset_download_df <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
-reformat <- function(x) {paste(as.vector(x),collapse="|")} # inline function
-dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,reformat))
-
-df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c("Resource ID"))]
-
-
+# Create jQuery version of dataframe with embedded sparklines
 d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
 
 d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
@@ -605,11 +628,8 @@ d0 <- d0[c("Package","Dataset",
            "All-time pageviews",
            "All-time API calls")]
 
-d0 <- rename(d0,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
-dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
-
 columnDefs = list(list(
-  targets = c(3), # The column to convert from a vector/list/whatever into a sparkline.
+  targets = c(sparks_column), # The column to convert from a vector/list/whatever into a sparkline.
   # Don't put the sparkline in the last column because otherwise many of the tooltips
   # will be outside the browser window (and therefore hidden).
   render = JS("function(data, type, full){
@@ -630,10 +650,13 @@ d1 <- datatable(d0, options = list(
 ), rownames= FALSE)
 d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
 
+d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
+dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
 
 
 the_downloads_table <- d1
-#####
+##### INPUTS: df_dataset_downloads_and_pageviews, history_frame
+##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
 # When RGA samples a metric every day (using the fetch.by = "day" option), 
