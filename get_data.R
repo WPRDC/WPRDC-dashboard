@@ -289,21 +289,30 @@ get_site_stats <- function() {
   return(site_stats) 
 }
 
-get_monthly_dataset_downloads <- function() {
-  # Pull WPRDC monthly downloads stats by dataset from a dedicated data repository on wprdc.org.
-  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=e8889e36-e4b1-4343-bb51-fb687eb9a2ff&limit=9999"
+get_monthly_downloads_stats <- function(resource_id,field_name) {
+  # Pull WPRDC monthly downloads stats from a dedicated data repository on wprdc.org.
+  json_file <- paste("https://data.wprdc.org/api/action/datastore_search?resource_id=",resource_id,"&limit=9999",sep="")
   json_data <- authorize_json_request(json_file,CKAN_API_key)
-  
+
   if(exists("json_data")) {
     site_stats <- json_data$result$records
     site_stats$`Unique downloads` <- as.integer(site_stats$`Unique downloads`)
     site_stats$Downloads <- as.integer(site_stats$Downloads)
-    site_stats$`Resource ID` <- as.character(site_stats$`Resource ID`)
-    site_stats <- site_stats[c("Year+month","Resource ID","Downloads","Unique downloads")]
+    site_stats[,as.character(field_name)] <- as.character(site_stats[,as.character(field_name)])
+    site_stats <- site_stats[c("Year+month",field_name,"Downloads","Unique downloads")]
     site_stats$year <- as.integer(substring(site_stats$`Year+month`,1,4))
     site_stats$month <- as.integer(substring(site_stats$`Year+month`,5,6))
   } else {
     site_stats <- NULL
   }
   return(site_stats) 
+}
+
+get_monthly_dataset_downloads <- function() {
+  return(get_monthly_downloads_stats("e8889e36-e4b1-4343-bb51-fb687eb9a2ff","Resource ID"))
+}
+
+get_monthly_package_downloads <- function() {
+  # Pull WPRDC monthly downloads stats by package from a dedicated data repository on wprdc.org.
+  return(get_monthly_downloads_stats("d72725b1-f163-4378-9771-14ce9dad3002","Package ID"))
 }

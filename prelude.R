@@ -11,7 +11,6 @@
 # prelude.R could eventually be broken down into separate caching/loading and 
 # data munging/processing scripts.
 
-#Error in print(force_refresh2) : object 'force_refresh2' not found
 options(stringsAsFactors = FALSE)
 
 library(hash)
@@ -396,8 +395,15 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
 refresh_md <- force_refresh | refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
 monthly_dataset_downloads <- refresh_it(get_monthly_dataset_downloads,
-                                        (refresh_md & (hour(Sys.time()) == 6)),
+                                        (refresh_md & (hour(Sys.time()) == 6)) | !production,
                                         monthly_downloads_cache)
+
+monthly_package_downloads_cache <- "monthly_package_downloads.csv"
+refresh_mpd <- force_refresh | refresh_boolean(monthly_package_downloads_cache,24*60,cached_mode)
+monthly_package_downloads <- refresh_it(get_monthly_package_downloads,
+                                        (refresh_mpd & (hour(Sys.time()) == 6)) | !production,
+                                        monthly_package_downloads_cache)
+View(monthly_package_downloads)
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"
