@@ -326,6 +326,37 @@ downloadable_version <- function(df_datasets_sparks){
   return(dataset_download_df)
 }
 
+make_datasparks_table <- function(df,fields,sparks_column){
+  # Create jQuery version of dataframe with embedded sparklines
+  d0 <- df[order(-df$"30-day downloads"),]
+  
+  d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
+  d0 <- d0[fields]
+  
+  columnDefs = list(list(
+    targets = c(sparks_column), # The column to convert from a vector/list/whatever into a sparkline.
+    # Don't put the sparkline in the last column because otherwise many of the tooltips
+    # will be outside the browser window (and therefore hidden).
+    render = JS("function(data, type, full){
+                return '<span class=spark>' + data + '</span>'           
+}")
+))
+  
+  fnDrawCallback = JS("function (oSettings, json) {
+                      $('.spark:not(:has(canvas))').sparkline('html', {
+                      type: 'bar',
+                      highlightColor: 'orange'
+                      });
+                      }")
+
+  d1 <- datatable(d0, options = list(
+    columnDefs = columnDefs,
+    fnDrawCallback = fnDrawCallback
+  ), rownames= FALSE)
+  d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
+  return(d1)
+}
+
 prepend_Month <- function(df) {
   # Since there are a bunch of Google Sheets sheets with date ranges like
   # "2015 Oct 15 - Nov 14", which are unsortable, the solution we've come up
@@ -596,15 +627,25 @@ if(refresh_download_data) {
 #d0$Spark <- 0                                   # This
 #d0$Spark[1] <- list(c(-3,2,-1,1,0,1,1,2,3,5,8)) # works!
 
-##### INPUTS: df_downloads_and_pageviews, monthly_dataset_downloads, id_field_name
+##### INPUTS: df_downloads_and_pageviews, monthly_dataset_downloads, id_field_name, sparks_column, fields
+# The code between INPUTS and OUTPUTS could be turned into a single function, EXCEPT
+# that it should return two things, which R is bad at.
 id_field_name <- "Resource ID"
 sparks_column <- 3
+fields <- c("Package","Dataset",
+            "Organization",
+            "Monthly downloads",
+            "30-day downloads",
+            "30-day unique downloads",
+            "30-day pageviews",
+            "All-time downloads",
+            "All-time unique downloads",
+            "All-time pageviews",
+            "All-time API calls")
 
 wide_mdd <- generate_wide_dd(monthly_dataset_downloads,id_field_name)
 number_of_months <- length(colnames(wide_mdd))
 history_frame <- generate_history_frame(wide_mdd)
-
-##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
 
 df_datasets_sparks <- merge_history_with_df(df_downloads_and_pageviews,
                                             history_frame,id_field_name,
@@ -613,49 +654,13 @@ dataset_download_df <- downloadable_version(df_datasets_sparks)
 
 df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c(id_field_name))]
 
-# Create jQuery version of dataframe with embedded sparklines
-d0 <- df_downloads_and_pageviews[order(-df_downloads_and_pageviews$"30-day downloads"),]
+d1 <- make_datasparks_table(df_downloads_and_pageviews,fields,sparks_column)
 
-d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
-d0 <- d0[c("Package","Dataset",
-           "Organization",
-           "Monthly downloads",
-           "30-day downloads",
-           "30-day unique downloads",
-           "30-day pageviews",
-           "All-time downloads",
-           "All-time unique downloads",
-           "All-time pageviews",
-           "All-time API calls")]
-
-columnDefs = list(list(
-  targets = c(sparks_column), # The column to convert from a vector/list/whatever into a sparkline.
-  # Don't put the sparkline in the last column because otherwise many of the tooltips
-  # will be outside the browser window (and therefore hidden).
-  render = JS("function(data, type, full){
-              return '<span class=spark>' + data + '</span>'           
-              }")
-))
-
-fnDrawCallback = JS("function (oSettings, json) {
-                    $('.spark:not(:has(canvas))').sparkline('html', {
-                    type: 'bar',
-                    highlightColor: 'orange'
-                    });
-                    }")
-
-d1 <- datatable(d0, options = list(
-  columnDefs = columnDefs,
-  fnDrawCallback = fnDrawCallback
-), rownames= FALSE)
-d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
-
+# Relabel some columns
 d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
 dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
 
-
 the_downloads_table <- d1
-##### INPUTS: df_dataset_downloads_and_pageviews, history_frame
 ##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
