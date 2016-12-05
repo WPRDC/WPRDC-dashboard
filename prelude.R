@@ -365,7 +365,7 @@ refresh_site_stats <- force_refresh | refresh_boolean(site_stats_cache_file,
                                                       24*60,
                                                       cached_mode)
 site_stats <- refresh_it(get_site_stats,
-                         (refresh_site_stats & (hour(Sys.time()) > 6)),
+                         (refresh_site_stats & (hour(Sys.time()) == 6)),
                          site_stats_cache_file)
 
 if(is.null(site_stats)) {
@@ -396,7 +396,7 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
 refresh_md <- force_refresh | refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
 monthly_dataset_downloads <- refresh_it(get_monthly_dataset_downloads,
-                                        (refresh_md & (hour(Sys.time()) > 6)),
+                                        (refresh_md & (hour(Sys.time()) == 6)),
                                         monthly_downloads_cache)
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
