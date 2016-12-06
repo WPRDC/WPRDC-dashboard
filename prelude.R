@@ -248,7 +248,8 @@ group_by_package <- function(df) {
                             "All-time downloads"=c(dl_all),
                             "All-time unique downloads"=c(dl_all_unique),
                             Resources=c(nrow(matched_rows)),
-                            package_path=c(matched_rows$package_path[[1]]))
+                            package_path=c(matched_rows$package_path[[1]]),
+                            "Package ID"=c(matched_rows$package_id[[1]]))
     } else {
       grouped <- rbind(grouped, 
                        c(matched_rows$Package[[1]],
@@ -258,7 +259,8 @@ group_by_package <- function(df) {
                          dl_all,
                          dl_all_unique,
                          nrow(matched_rows),
-                         matched_rows$package_path[[1]]))
+                         matched_rows$package_path[[1]],
+                         matched_rows$package_id[[1]]))
     }
   }
   grouped$`30-day downloads` <- as.numeric(grouped$`30-day downloads`)
@@ -306,6 +308,9 @@ generate_history_frame <- function(wide_mdd){
 
 merge_history_with_df <- function(df,history_f,id_field_name,number_of_months) {
   # Add sparkline data
+  print(colnames(df))
+  print(colnames(history_f))
+  print(id_field_name)
   df_with_sparks <- merge(df,history_f,
                           by.x=id_field_name,by.y="id",all.x = TRUE)
   df_with_sparks <- rename(df_with_sparks,
@@ -355,6 +360,29 @@ make_datasparks_table <- function(df,fields,sparks_column){
   ), rownames= FALSE)
   d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
   return(d1)
+}
+
+make_sparks_table_and_bare_df <- function(df_downloads_and_pageviews,
+                                          monthly_dataset_downloads,fields,
+                                          id_field_name, sparks_column) {
+  # Take the base dataset and the one with the lists to be embedded in
+  # individual rows (the histories of downloads by month) and return
+  # 1) the jQuery table thing that has embedded sparklines and 
+  # 2) a version that just has a pipe-delimited list in the 
+  # corresponding history row (for downloading purposes).
+  wide_mdd <- generate_wide_dd(monthly_dataset_downloads,id_field_name)
+  number_of_months <- length(colnames(wide_mdd))
+  history_frame <- generate_history_frame(wide_mdd)
+  
+  df_datasets_sparks <- merge_history_with_df(df_downloads_and_pageviews,
+                                              history_frame,id_field_name,
+                                              number_of_months)
+  dataset_download_df <- downloadable_version(df_datasets_sparks)
+  
+  df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c(id_field_name))]
+  
+  d1 <- make_datasparks_table(df_downloads_and_pageviews,fields,sparks_column)
+  return(list(d1,dataset_download_df))
 }
 
 prepend_Month <- function(df) {
@@ -415,8 +443,7 @@ within_n_days_of <- function(df,n,last_date) {
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
 cached_mode <- FALSE
-include_API_calls <- TRUE #FALSE # Switching this will conflict with a cached version of 
-# the downloaded data, so eliminate this before deploying.
+include_API_calls <- TRUE 
 
 if(!cached_mode) {
   source("get_data.R") # Load all the functions that get 
@@ -528,11 +555,10 @@ if(refresh_download_data) {
     df_downloads <- merge(df_downloads,all_API_calls,by="eventLabel")
   }
   df_downloads <- name_datasets(df_downloads)
-  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
+#  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
+  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id"))]
   df_pageviews_month <- get_pageviews_gar(today-days(x=30),yesterday,p_Id,production)
-#  df_pageviews_month <- get_pageviews("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
   df_pageviews_all <- get_pageviews_gar("2015-10-15",yesterday,p_Id,production)
-#  df_pageviews_all <- get_pageviews("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
   df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
                                       by.x="resource_path",by.y="pagePath")
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
@@ -564,6 +590,8 @@ if(refresh_download_data) {
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
   
   downloads_by_package <- group_by_package(df_downloads)
+  print("downloads_by_package columns:")
+  print(colnames(downloads_by_package))
   package_downloads_and_pageviews <- merge(downloads_by_package,df_pageviews_month,
                                       by.x="package_path",by.y="pagePath")
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
@@ -582,7 +610,8 @@ if(refresh_download_data) {
                                                              "All-time unique downloads",
                                                              "All-time pageviews",
 #                                                             "All-time API calls",
-                                                             "Resources")]
+                                                             "Resources",
+                                                             "Package ID")]
   
   
 #  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
@@ -613,7 +642,8 @@ if(refresh_download_data) {
                                    "X30.day.pageviews"="30-day pageviews", 
                                    "All.time.downloads"="All-time downloads", 
                                    "All.time.unique.downloads"="All-time unique downloads",
-                                   "All.time.pageviews"="All-time pageviews"))#,
+                                   "All.time.pageviews"="All-time pageviews",
+                                   "Package.ID"="Package ID"))#,
                                    #"All.time.API.calls"="All-time API calls"))
 }
 
@@ -627,9 +657,8 @@ if(refresh_download_data) {
 #d0$Spark <- 0                                   # This
 #d0$Spark[1] <- list(c(-3,2,-1,1,0,1,1,2,3,5,8)) # works!
 
-##### INPUTS: df_downloads_and_pageviews, monthly_dataset_downloads, id_field_name, sparks_column, fields
-# The code between INPUTS and OUTPUTS could be turned into a single function, EXCEPT
-# that it should return two things, which R is bad at.
+##### Generate sparkline-embedded table for the dashboard and modified 
+##### dataframe for downloading.
 id_field_name <- "Resource ID"
 sparks_column <- 3
 fields <- c("Package","Dataset",
@@ -643,18 +672,14 @@ fields <- c("Package","Dataset",
             "All-time pageviews",
             "All-time API calls")
 
-wide_mdd <- generate_wide_dd(monthly_dataset_downloads,id_field_name)
-number_of_months <- length(colnames(wide_mdd))
-history_frame <- generate_history_frame(wide_mdd)
+returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
+                                               monthly_dataset_downloads, 
+                                               fields,
+                                               id_field_name, 
+                                               sparks_column)
 
-df_datasets_sparks <- merge_history_with_df(df_downloads_and_pageviews,
-                                            history_frame,id_field_name,
-                                            number_of_months)
-dataset_download_df <- downloadable_version(df_datasets_sparks)
-
-df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c(id_field_name))]
-
-d1 <- make_datasparks_table(df_downloads_and_pageviews,fields,sparks_column)
+d1 <- returned_list[[1]]
+dataset_download_df <- returned_list[[2]]
 
 # Relabel some columns
 d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
@@ -662,6 +687,35 @@ dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
 
 the_downloads_table <- d1
 ##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
+
+# Likewise for packages:
+id_field_name <- "Package ID"
+sparks_column <- 2
+fields <- c("Package",
+            "Organization",
+            "Monthly downloads",
+            "30-day downloads",
+            "30-day unique downloads",
+            "30-day pageviews",
+            "All-time downloads",
+            "All-time unique downloads",
+            "All-time pageviews",
+            "Resources")
+
+returned_list <- make_sparks_table_and_bare_df(package_downloads_and_pageviews,
+                                               monthly_package_downloads, 
+                                               fields,
+                                               id_field_name, 
+                                               sparks_column)
+
+d2 <- returned_list[[1]]
+package_download_df <- returned_list[[2]]
+
+# Relabel some columns
+d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
+
+package_downloads_table <- d2
+
 
 # [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
 # When RGA samples a metric every day (using the fetch.by = "day" option), 
