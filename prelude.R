@@ -308,9 +308,6 @@ generate_history_frame <- function(wide_mdd){
 
 merge_history_with_df <- function(df,history_f,id_field_name,number_of_months) {
   # Add sparkline data
-  print(colnames(df))
-  print(colnames(history_f))
-  print(id_field_name)
   df_with_sparks <- merge(df,history_f,
                           by.x=id_field_name,by.y="id",all.x = TRUE)
   df_with_sparks <- rename(df_with_sparks,
@@ -480,7 +477,7 @@ refresh_site_stats <- force_refresh | refresh_boolean(site_stats_cache_file,
                                                       24*60,
                                                       cached_mode)
 site_stats <- refresh_it(get_site_stats,
-                         (refresh_site_stats & (hour(Sys.time()) == 6)),
+                         (refresh_site_stats & (hour(Sys.time()) == 6)) | !production,
                          site_stats_cache_file)
 
 if(is.null(site_stats)) {
@@ -549,10 +546,13 @@ if(refresh_download_data) {
                             c("totalEvents"="All API calls","uniqueEvents"="All unique API calls"))
   }  
     
-  df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel")
+  df_downloads <- merge(downloads_per_month,all_downloads,by="eventLabel",all=TRUE)
+  # Merging with all=TRUE makes this an outer join. Missing values are filled in by NAs.
+  df_downloads[is.na(df_downloads)] <- 0 # NAs can be switched to zeros using this line.
   if(include_API_calls) {
-    #df_downloads <- merge(df_downloads,API_calls_per_month,by="eventLabel")
-    df_downloads <- merge(df_downloads,all_API_calls,by="eventLabel")
+    #df_downloads <- merge(df_downloads,API_calls_per_month,by="eventLabel",all=TRUE)
+    df_downloads <- merge(df_downloads,all_API_calls,by="eventLabel",all.x=TRUE)
+    df_downloads[is.na(df_downloads)] <- 0
   }
   df_downloads <- name_datasets(df_downloads)
 #  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
@@ -560,11 +560,15 @@ if(refresh_download_data) {
   df_pageviews_month <- get_pageviews_gar(today-days(x=30),yesterday,p_Id,production)
   df_pageviews_all <- get_pageviews_gar("2015-10-15",yesterday,p_Id,production)
   df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
-                                      by.x="resource_path",by.y="pagePath")
+                                      by.x="resource_path",by.y="pagePath",all.x=TRUE)
+  # Making the above merge an all.x=TRUE merge eliminates a lot of paths that 
+  # are not resources.
+  df_downloads_and_pageviews[is.na(df_downloads_and_pageviews)] <- 0
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
                          c("pageviews"="30-day pageviews"))
   df_downloads_and_pageviews <- merge(df_downloads_and_pageviews,df_pageviews_all,
-                                      by.x="resource_path",by.y="pagePath")
+                                      by.x="resource_path",by.y="pagePath",all.x=TRUE)
+  df_downloads_and_pageviews[is.na(df_downloads_and_pageviews)] <- 0
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
                                        c("pageviews"="All-time pageviews"))
   #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`All-time unique downloads`/df_downloads_and_pageviews$`All-time pageviews`,digits=2)
@@ -586,18 +590,17 @@ if(refresh_download_data) {
                                                              #"Downloads per pageview",
                                                              "Resource ID")]
   
-#  write.csv(df_downloads, "df_downloads.csv", row.names=FALSE)
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
   
   downloads_by_package <- group_by_package(df_downloads)
-  print("downloads_by_package columns:")
-  print(colnames(downloads_by_package))
   package_downloads_and_pageviews <- merge(downloads_by_package,df_pageviews_month,
-                                      by.x="package_path",by.y="pagePath")
+                                      by.x="package_path",by.y="pagePath",all.x=TRUE)
+  package_downloads_and_pageviews[is.na(package_downloads_and_pageviews)] <- 0
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
                                        c("pageviews"="30-day pageviews"))
   package_downloads_and_pageviews <- merge(package_downloads_and_pageviews,df_pageviews_all,
-                                           by.x="package_path",by.y="pagePath")
+                                           by.x="package_path",by.y="pagePath",all.x=TRUE)
+  package_downloads_and_pageviews[is.na(package_downloads_and_pageviews)] <- 0
   package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
                                             c("pageviews"="All-time pageviews"))
   
@@ -614,14 +617,8 @@ if(refresh_download_data) {
                                                              "Package ID")]
   
   
-#  write.csv(downloads_by_package, "downloads_by_package.csv", row.names=FALSE)
   write.csv(package_downloads_and_pageviews, package_d_and_p_file, row.names=FALSE)
-  ###
-  # [ ] Eventually separate this entire if clause into a separate function
-  # that can be called by a cron job to refresh these two CSV files.
-  # This function accepts today, yesterday, and include_API_calls (and maybe something else
-  # and returns package_downloads_and_pageviews and df_downloads_and_pageviews).
-  
+
 } else {
   df_downloads_and_pageviews <- read.csv(resource_d_and_p_file)
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews, 
