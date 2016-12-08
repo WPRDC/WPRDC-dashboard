@@ -38,8 +38,10 @@ library(htmlwidgets)
 library(sparkline)
 library(lattice)
 
-suppressMessages(library(dplyr)) # data_frame comes from dplyr.
-library(plyr) # Loaded to use the rename function.
+library(plyr) # It is reportedly better to load plyr before dplyr, 
+# though I observe no difference.
+library(dplyr) # data_frame comes from dplyr.
+#library(plyr) # Loaded to use the rename function.
 library(httr)
 #library(RGoogleAnalytics)
 # Some online documentation for how to use RGoogleAnalytics is out of date.
@@ -275,7 +277,7 @@ generate_wide_dd <- function(monthly_df,id_field_name){
   names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname)
   names(mdd)[names(mdd)=="Year.month"] <- "ym"
   names(mdd)[names(mdd)==id_field_name] <- "id"
-  names(mdd)[names(mdd)==id_field_name] <- "id"
+  names(mdd)[names(mdd)==gsub(" ", ".", id_field_name)] <- "id"
   wide_mdd <- dcast(mdd,id ~ ym,value.var="Downloads") # Excludes "Unique downloads"
   #as.list(as.data.frame(wdd))
   return(wide_mdd)
@@ -473,11 +475,12 @@ if((!cached_mode) & (refresh_google_sheets_data)) {
 }
 
 site_stats_cache_file = "cached_site_stats.csv"
-refresh_site_stats <- force_refresh | refresh_boolean(site_stats_cache_file,
-                                                      24*60,
-                                                      cached_mode)
+refresh_site_stats <- refresh_boolean(site_stats_cache_file,24*60,cached_mode)
+refresh_site_stats <- refresh_site_stats | force_refresh | (hour(Sys.time()) == 6)
+refresh_site_stats <- refresh_site_stats | !production
+
 site_stats <- refresh_it(get_site_stats,
-                         (refresh_site_stats & (hour(Sys.time()) == 6)) | !production,
+                         refresh_site_stats,
                          site_stats_cache_file)
 
 if(is.null(site_stats)) {
@@ -506,15 +509,19 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 
 
 monthly_downloads_cache <- "monthly_dataset_downloads.csv"
-refresh_md <- force_refresh | refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
+refresh_md <- refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
+refresh_md <- refresh_md | force_refresh | (hour(Sys.time()) == 6)
+refresh_md <- refresh_md | !production
 monthly_dataset_downloads <- refresh_it(get_monthly_dataset_downloads,
-                                        (refresh_md & (hour(Sys.time()) == 6)) | !production,
+                                        refresh_md,
                                         monthly_downloads_cache)
 
 monthly_package_downloads_cache <- "monthly_package_downloads.csv"
-refresh_mpd <- force_refresh | refresh_boolean(monthly_package_downloads_cache,24*60,cached_mode)
+refresh_mpd <- refresh_boolean(monthly_package_downloads_cache,24*60,cached_mode)
+refresh_mpd <- refresh_mpd | force_refresh | (hour(Sys.time()) == 6)
+refresh_mpd <- refresh_mpd | !production
 monthly_package_downloads <- refresh_it(get_monthly_package_downloads,
-                                        (refresh_mpd & (hour(Sys.time()) == 6)) | !production,
+                                        refresh_mpd,
                                         monthly_package_downloads_cache)
 
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
