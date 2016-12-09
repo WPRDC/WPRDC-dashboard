@@ -38,10 +38,12 @@ library(htmlwidgets)
 library(sparkline)
 library(lattice)
 
-library(plyr) # It is reportedly better to load plyr before dplyr, 
+#library(plyr) # It is reportedly better to load plyr before dplyr, 
 # though I observe no difference.
 library(dplyr) # data_frame comes from dplyr.
-#library(plyr) # Loaded to use the rename function.
+library(plyr) # Loaded to use the rename function (and override dplyr::rename).
+# Otherwise, it's necessary to replace all instances of rename with
+# plyr::rename.
 library(httr)
 #library(RGoogleAnalytics)
 # Some online documentation for how to use RGoogleAnalytics is out of date.
@@ -439,6 +441,12 @@ within_n_days_of <- function(df,n,last_date) {
   return(df)
 }
 
+eliminate_empty_fields <- function(df,field_list) {
+  # Return a dataframe containing only the rows where the fields
+  # in field_list are not NA values.
+  return(df[complete.cases(df[,field_list]),])
+}
+
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
 cached_mode <- FALSE
@@ -740,6 +748,7 @@ c_uses_ws <- read_excel(cached_metrics_file, sheet = "Classroom Uses")
 #for two reasons: 1) The colon separating minutes and seconds is misinterpreted
 #when importing into R. 2) The parentheses from the column header are 
 #silently dropped.
+c_uses_ws <- eliminate_empty_fields(c_uses_ws,c("Semester"))
 
 pitt_uses <- nrow(c_uses_ws[c_uses_ws$Institution == "Pitt",])
 cmu_uses <- nrow(c_uses_ws[grep("CMU",c_uses_ws$Institution),])
@@ -759,6 +768,7 @@ publishers <- other_web_stats[,(names(other_web_stats) %in%
                                     "Government Publishers","Non-Profit Publishers",
                                     "Other Publishers"))]
 publishers <- reverse_sort_by_Month(prepend_Month(publishers))
+publishers <- eliminate_empty_fields(publishers,c("Date","Total Publishers"))
 
 etl_process_count <- other_web_stats[,(names(other_web_stats) %in% 
                                          c("Data with Automated ETL (Non GIS)"))]
@@ -770,6 +780,7 @@ etl_processes <- rename(etl_processes,
                        "Automated ETL list"="List of Datasets with Automated Import Processes"))
 etl_processes <- etl_processes[-c(1),] # Elimate first row
 etl_processes <- reverse_sort_by_Month(prepend_Month(etl_processes))
+na.omit(etl_processes)
 
 misc_other_stats <- other_web_stats[,(names(other_web_stats) %in% 
                                         c("Date","Discussion Posts",
@@ -777,12 +788,14 @@ misc_other_stats <- other_web_stats[,(names(other_web_stats) %in%
 misc_other_stats <- misc_other_stats[-c(1),]
 misc_other_stats[,2:3] <- sapply(misc_other_stats[, 2:3], as.integer)
 misc_other_stats <- reverse_sort_by_Month(prepend_Month(misc_other_stats))
+na.omit(misc_other_stats)
 
 social_media <- read_excel(cached_metrics_file, sheet = "Social Media")
 social_media <- social_media[-c(3,4),]
 twitter_followers <- social_media[,(names(social_media) %in% c("Period","Twitter Followers, End of period"))]
 Month <- as.integer(rownames(twitter_followers))
 twitter_followers <- reverse_sort_by_Month(cbind(Month,twitter_followers))
+na.omit(twitter_followers)
 
 media <- read_excel(cached_metrics_file, sheet = "Media")
 media_mentions <- nrow(media) - 1
@@ -793,6 +806,11 @@ colnames(outreach_events_table) <- as.list(outreach_events_table[1,])
 outreach_events_table <- outreach_events_table[-c(1),]
 proper <- function(x) paste0(toupper(substr(x, 1, 1)), tolower(substring(x, 2))) # inline function
 outreach_events_table$Type <- proper(outreach_events_table$Type)
+oet <- outreach_events_table
+outreach_events_table <- eliminate_empty_fields(outreach_events_table,c("Date","Type"))
+#df <- outreach_events_table
+#field_list <- c("Date","Type")
+#outreach_events_table <- df[complete.cases(df[,field_list]),]
 
 # Due to a known deficiency in R and readxl (and really Excel 
 # for being weird about forcing dates to become datetimes), the 

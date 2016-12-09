@@ -14,7 +14,9 @@ if(!production) {
 source("prelude.R", local=TRUE)
 
 ui <- shinyUI(fluidPage(
-  tags$head(tags$style(
+  tags$head(
+    tags$head(includeScript("google-analytics.js")),
+    tags$style(
     HTML('
          #sidebar {
          background-color: #000;
@@ -49,7 +51,7 @@ ui <- shinyUI(fluidPage(
     
     #            p(HTML("<a href=\"javascript:history.go(0)\">Reset this page</a>"))
     
-    tabsetPanel(
+    tabsetPanel(id = "WPRDC-dashboard",
       tabPanel("Web stats",
                fluidRow(column(8, align="right",plotOutput("plot1")),
                         column(width = 2, wellPanel(
