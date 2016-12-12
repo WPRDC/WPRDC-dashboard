@@ -216,6 +216,14 @@ get_pageviews_gar <- function(start_date,end_date,
                                      sort = c("-ga:pageviews"),
                                      max_results = 99999
     )
+    # This call to google_analytics seems to be the source of the 
+    # following warning which I just noticed appearing on the console
+    # when running the dashboard app from RStudio:
+    #     Warning in FUN(X[[i]], ...) : 400 type error in response
+    # It's not clear what this means, but introducing a delay of 1 second
+    # before calling this does not eliminate this warning. This error
+    # does not appear to be causing any problems, as the pageviews are
+    # all subsequently downloaded.
     return(pageviews)
   } else {
     return(NULL) # The backup option should really be better than returning NULL.
@@ -308,7 +316,7 @@ get_monthly_downloads_stats <- function(resource_id,field_name) {
   return(site_stats) 
 }
 
-get_monthly_dataset_downloads <- function() {
+get_monthly_resource_downloads <- function() {
   return(get_monthly_downloads_stats("e8889e36-e4b1-4343-bb51-fb687eb9a2ff","Resource ID"))
 }
 

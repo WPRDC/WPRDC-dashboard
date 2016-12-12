@@ -149,9 +149,9 @@ name_datasets <- function(df) {
         resources <- package$resources[[1]]
         if((length(resources$name) > 0)) {
           if(is.na(resources$name[[k]])) {
-            dataset <- "Unnamed resource"
+            resource <- "Unnamed resource"
           } else {
-            dataset <- resources$name[[k]]
+            resource <- resources$name[[k]]
           }
           package_url_path <- c(paste("/dataset/",package$name,sep=""))
           if((length(resources$id) > 0)) {
@@ -164,7 +164,7 @@ name_datasets <- function(df) {
           }
           if(j*k == 1) {
             resource_map <- data_frame(Package=c(package$title),
-                                       Dataset=c(dataset),
+                                       Resource=c(resource),
                                        Organization=c(package$organization$title),
                                        id=c(resources$id[[k]]),
                                        package_id=c(resources$package_id[[k]]),
@@ -173,7 +173,7 @@ name_datasets <- function(df) {
           } else {
             resource_map <- rbind(resource_map, 
                                   c(package$title,
-                                    dataset,
+                                    resource,
                                     package$organization$title,
                                     resources$id[[k]],
                                     resources$package_id[[k]],
@@ -231,7 +231,7 @@ name_datasets <- function(df) {
 }
 
 group_by_package <- function(df) {
-  # Eliminate the datasets (resources) and sum download counts over all datasets (resources)
+  # Eliminate the resources and sum download counts over all resources
   # in a given package.
   
   # Again, there's surely a better way to do this. 
@@ -323,13 +323,12 @@ merge_history_with_df <- function(df,history_f,id_field_name,number_of_months) {
 
 reformat <- function(x) {paste(as.vector(x),collapse="|")}
 
-downloadable_version <- function(df_datasets_sparks){
+downloadable_version <- function(df_sparks){
   # Set aside downloadable version of the dataframe
-  dataset_download_df <- df_datasets_sparks[order(-df_datasets_sparks$"30-day downloads"),]
-  #reformat <- function(x) {paste(as.vector(x),collapse="|")} # inline function
-  dataset_download_df$`Monthly downloads` <- as.character(lapply(dataset_download_df$`Monthly downloads`,
+  download_df <- df_sparks[order(-df_sparks$"30-day downloads"),]
+  download_df$`Monthly downloads` <- as.character(lapply(download_df$`Monthly downloads`,
                                                                  reformat))
-  return(dataset_download_df)
+  return(download_df)
 }
 
 make_datasparks_table <- function(df,fields,sparks_column){
@@ -364,26 +363,26 @@ make_datasparks_table <- function(df,fields,sparks_column){
 }
 
 make_sparks_table_and_bare_df <- function(df_downloads_and_pageviews,
-                                          monthly_dataset_downloads,fields,
+                                          monthly_downloads,fields,
                                           id_field_name, sparks_column) {
   # Take the base dataset and the one with the lists to be embedded in
   # individual rows (the histories of downloads by month) and return
   # 1) the jQuery table thing that has embedded sparklines and 
   # 2) a version that just has a pipe-delimited list in the 
   # corresponding history row (for downloading purposes).
-  wide_mdd <- generate_wide_dd(monthly_dataset_downloads,id_field_name)
+  wide_mdd <- generate_wide_dd(monthly_downloads,id_field_name)
   number_of_months <- length(colnames(wide_mdd))
   history_frame <- generate_history_frame(wide_mdd)
   
-  df_datasets_sparks <- merge_history_with_df(df_downloads_and_pageviews,
-                                              history_frame,id_field_name,
-                                              number_of_months)
-  dataset_download_df <- downloadable_version(df_datasets_sparks)
+  df_sparks <- merge_history_with_df(df_downloads_and_pageviews,
+                                    history_frame,id_field_name,
+                                    number_of_months)
+  download_df <- downloadable_version(df_sparks)
   
-  df_downloads_and_pageviews <- df_datasets_sparks[,!(names(df_datasets_sparks) %in% c(id_field_name))]
+  df_downloads_and_pageviews <- df_sparks[,!(names(df_sparks) %in% c(id_field_name))]
   
   d1 <- make_datasparks_table(df_downloads_and_pageviews,fields,sparks_column)
-  return(list(d1,dataset_download_df))
+  return(list(d1,download_df))
 }
 
 prepend_Month <- function(df) {
@@ -516,11 +515,11 @@ year_months <- substr(seq.Date(as.Date("2015-10-01"),today,by="1 month"),1,7)
 # Add these to the spreadsheet as a "year_month" column to search for.
 
 
-monthly_downloads_cache <- "monthly_dataset_downloads.csv"
+monthly_downloads_cache <- "monthly_resource_downloads.csv"
 refresh_md <- refresh_boolean(monthly_downloads_cache,24*60,cached_mode)
 refresh_md <- refresh_md | force_refresh | (hour(Sys.time()) == 6)
 refresh_md <- refresh_md | !production
-monthly_dataset_downloads <- refresh_it(get_monthly_dataset_downloads,
+monthly_resource_downloads <- refresh_it(get_monthly_resource_downloads,
                                         refresh_md,
                                         monthly_downloads_cache)
 
@@ -593,7 +592,7 @@ if(refresh_download_data) {
   
   resource_ids <- as.vector(mapply(function(x) gsub(".*\\/", "",x),df_downloads_and_pageviews$resource_path))
   df_downloads_and_pageviews$`Resource ID` <- resource_ids
-  df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Dataset",
+  df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Resource",
                                                              "Organization",
                                                              "30-day downloads",
                                                              "30-day unique downloads",
@@ -673,7 +672,7 @@ if(refresh_download_data) {
 ##### dataframe for downloading.
 id_field_name <- "Resource ID"
 sparks_column <- 3
-fields <- c("Package","Dataset",
+fields <- c("Package","Resource",
             "Organization",
             "Monthly downloads",
             "30-day downloads",
@@ -685,20 +684,19 @@ fields <- c("Package","Dataset",
             "All-time API calls")
 
 returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
-                                               monthly_dataset_downloads, 
+                                               monthly_resource_downloads, 
                                                fields,
                                                id_field_name, 
                                                sparks_column)
 
 d1 <- returned_list[[1]]
-dataset_download_df <- returned_list[[2]]
+resource_download_df <- returned_list[[2]]
 
 # Relabel some columns
-d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
-dataset_download_df <- rename(dataset_download_df, c("Dataset"="Resource"))
+d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**"))
 
 the_downloads_table <- d1
-##### OUTPUTS USED BY app.R: the_downloads_table, dataset_download_df
+##### OUTPUTS USED BY app.R: the_downloads_table, resource_download_df
 
 # Likewise for packages:
 id_field_name <- "Package ID"
@@ -724,7 +722,7 @@ d2 <- returned_list[[1]]
 package_download_df <- returned_list[[2]]
 
 # Relabel some columns
-d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**","Dataset"="Resource"))
+d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**"))
 
 package_downloads_table <- d2
 

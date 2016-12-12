@@ -71,7 +71,7 @@ ui <- shinyUI(fluidPage(
                HTML("<div style='font-size:80%'>* A month-by-month list of downloads can be found <a href='https://data.wprdc.org/dataset/wprdc-statistics/resource/e8889e36-e4b1-4343-bb51-fb687eb9a2ff'>here</a>.</div>"),
                HTML("<div style='font-size:80%'>** API calls are dominated by internal operations and are not a good measure of public usage.</div>"),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
-               downloadButton('downloadDatasetData', 'Download'),
+               downloadButton('downloadResourceData', 'Download'),
                shiny::actionButton(inputId='ab1', label="Download monthly-downloads data", 
                                    icon = icon("th"), 
                                    onclick ="window.open('https://data.wprdc.org/datastore/dump/d72725b1-f163-4378-9771-14ce9dad3002', '_blank')")
@@ -160,7 +160,7 @@ server <- shinyServer(function(input, output) {
   output$downloads_table = DT::renderDataTable({
     the_downloads_table
   })
-  output$downloadDatasetData <- downloadHandler(
+  output$downloadResourceData <- downloadHandler(
     
     # This function returns a string which tells the client
     # browser what name to use when saving the file.
@@ -171,7 +171,7 @@ server <- shinyServer(function(input, output) {
     content = function(file) {
       sep <- ","
       # Write to a file specified by the 'file' argument
-      write.table(dataset_download_df, file, sep = sep, row.names = FALSE)
+      write.table(resource_download_df, file, sep = sep, row.names = FALSE)
     }
   )
   output$package_table = DT::renderDataTable({
