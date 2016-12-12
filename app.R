@@ -24,7 +24,7 @@ ui <- shinyUI(fluidPage(
          }
          
          body, label, input, button, select { 
-         font-family: Optima,"Lucida Grande",Tahoma;
+         font-family: Optima,"Lucida Grande",Tahoma,"Gill Sans",Helvetica;
          }
          .jqstooltip {
              -webkit-box-sizing: content-box;
@@ -76,13 +76,10 @@ ui <- shinyUI(fluidPage(
                                    icon = icon("th"), 
                                    onclick ="window.open('https://data.wprdc.org/datastore/dump/d72725b1-f163-4378-9771-14ce9dad3002', '_blank')")
       ),
-      tabPanel("Package stats",DT::dataTableOutput('package_table'),
+      tabPanel("Dataset package stats",DT::dataTableOutput('package_table'),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
                downloadButton('downloadPackageData', 'Download')
       ),
-      #      tabPanel("Package stats",dataTableOutput('by_package'),
-#               HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
-#               downloadButton('downloadPackageData', 'Download')),
       tabPanel("Classroom uses",
                plotOutput("uses_plot"),
                dataTableOutput('uses_table'),
@@ -109,7 +106,14 @@ ui <- shinyUI(fluidPage(
                hr(),
                HTML("<center style='font-size:140%'>Twitter-follower counts</center>"),
                dataTableOutput('twitter_followers')
-      )
+      ),
+      tabPanel("About",
+               fluidRow(
+                 column(12,
+                    includeHTML("about.html")
+                  )
+                 )
+              )
     )
     )
   )
