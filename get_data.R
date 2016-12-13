@@ -5,19 +5,6 @@ library(googleAuthR)
 library(jsonlite)
 library(httr)
 
-source("authentication.R") # Look up the p_Id, client ID, and client
-# secret to access the Google Analytics account. Also determine the
-# value of the production variable, which sets whether this is a
-# production or development environment.
-
-authorize_json_request <- function(url,API_key) { # This function dies with an error
-  # when there is no Internet connection.
-  req <- httr::GET(url, httr::add_headers(Authorization = API_key))
-  json <- httr::content(req, as = "text")
-  json_data <- fromJSON(json)
-  return(json_data)
-}
-
 authorize_analytics <- function(p_Id,client_id,client_secret,production) {
   if(!production) {
     authorize()
@@ -148,6 +135,19 @@ get_API_requests_r_goo <- function(start_date,end_date,
 
   return(API_requests)
 }
+###########################################################
+source("authentication.R") # Look up the p_Id, client ID, and client
+# secret to access the Google Analytics account. Also determine the
+# value of the production variable, which sets whether this is a
+# production or development environment.
+
+authorize_json_request <- function(url,API_key) { # This function dies with an error
+  # when there is no Internet connection.
+  req <- httr::GET(url, httr::add_headers(Authorization = API_key))
+  json <- httr::content(req, as = "text")
+  json_data <- fromJSON(json)
+  return(json_data)
+}
 
 ######################### GoogleAnalyticsR helper functions
 
@@ -156,22 +156,11 @@ get_API_requests_r_goo <- function(start_date,end_date,
 #authenticate locally and upload the .httr-oauth file to the 
 #folder of your script."
 
-
-# Something simple that worked:
-#service_token <- gar_auth_service(json_file="WPRDC/Dashboards/Shiny/wprdc_io/Internal dashboard-e6fc0911ead5.json")
-#account_list <- google_analytics_account_list() #shows list of accessible WPRDC Google Analytics accounts
-
-
-# Some documentation
-#gadata <- google_analytics(id = ga_id, 
-#             start="2016-08-01", end="2016-08-31", 
-#             metrics = c("sessions", "bounceRate"), 
-#             dimensions = c("date"))
 authorize_analytics_gar <- function(production) {
   if(!production) {
-    json_file <- "/Users/drw/WPRDC/Dashboards/Shiny/wprdc_io/Internal dashboard-e6fc0911ead5.json"
+    json_file <- "/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard/google-auth.json"
   } else {
-    json_file <- "Internal dashboard-e6fc0911ead5.json"
+    json_file <- "google-auth.json"
   }
   if(file.exists(json_file)) {
     service_token <- gar_auth_service(json_file=json_file)

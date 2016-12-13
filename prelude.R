@@ -11,6 +11,15 @@
 # prelude.R could eventually be broken down into separate caching/loading and 
 # data munging/processing scripts.
 
+
+
+# NOTE: When deploying a Shiny app for the first time, even after following 
+# all the Linux permissions steps in 
+#   http://deanattali.com/2015/05/09/setup-rstudio-shiny-server-digital-ocean/
+# you still may need to execute this in the Shiny app directory:
+#
+#   > sudo chown -R shiny:shiny-apps .
+
 options(stringsAsFactors = FALSE)
 
 library(hash)
@@ -755,8 +764,6 @@ d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*",
 
 package_downloads_table <- d2
 
-
-# [ ] Figure out how to trigger a reloading of all data... Maybe reboot Shiny every 30 minutes?
 # When RGA samples a metric every day (using the fetch.by = "day" option), 
 # it is extremely slow since it breaks the query down into many queries that
 # are then batched but still run at 10 samples/second since that is the Google
