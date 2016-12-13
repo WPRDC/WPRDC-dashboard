@@ -82,28 +82,26 @@ ui <- shinyUI(fluidPage(
                downloadButton('downloadDatasetData', 'Download')
       ),
       tabPanel("Classroom uses",
-               plotOutput("uses_plot"),
+               fluidRow(
+                   splitLayout(cellWidths = c("10%", "80%", "10%"), HTML("<P>"), plotOutput("uses_plot"), HTML("<P>"))
+                 ),
                dataTableOutput('uses_table'),
                HTML(sprintf("Total classroom uses: %d (Pitt: %d, CMU: %d)", 
                             classroom_uses, pitt_uses, cmu_uses))),
       tabPanel("Outreach",
                HTML("<center style='font-size:140%'>Breakdown of outreach/events</center>"),
                #<span style='font-size:75%'>(Last 90 days in orange)</span>
-               plotOutput("event_types_plot"),
-               #fluidRow(
-               #  splitLayout(cellWidths = c("70%", "30%"), plotOutput("event_types_plot"), plotOutput("recent_event_types_plot"))
-               #)
-               HTML("<hr>"),
                fluidRow(
-                 splitLayout(cellWidths = c("50%", "50%"), 
-                             HTML("<center style='font-size:170%'>Total 
-                                  outreach instances & events: <b>",outreach_and_events,
-                                  "</b></center>"),
-                             HTML("<center style='font-size:170%'>Media mentions:
-                                  <b>",media_mentions,
-                                  "</b></center>")
-                             )
+                 splitLayout(cellWidths = c("10%", "80%", "10%"), HTML("<P>"), plotOutput("event_types_plot"), HTML("<P>"))
                ),
+               HTML("<hr>"),
+               fluidRow(HTML("<div class='row' style='margin:1em'>
+                             <div class='col-sm-8' style='font-size:170%'>Total outreach instances & events: <b>",
+                             outreach_and_events,
+                             "</b></div>",
+                             "<div class='col-sm-4' style='font-size:170%'>Media mentions:<b>",
+                             media_mentions,
+                             "</b></div></div>")),
                hr(),
                HTML("<center style='font-size:140%'>Twitter-follower counts</center>"),
                dataTableOutput('twitter_followers')
@@ -140,7 +138,7 @@ server <- shinyServer(function(input, output) {
   },options = list(lengthMenu = c(12, 24, 48), pageLength = 12),rownames=FALSE)
   output$uses_plot = renderPlot({
     ## lots of extra space in the margin for sides 2 and 4 (left and right)
-    op <- par(mar = c(4,15,4,15) + 0.1)
+    op <- par(mar = c(4,5,4,4) + 0.1)
     counts <- xtabs(count ~ reorder(institution,index) + reorder(term,index), df_uses)
     barplot(counts, 
             xlab="Term", ylab="Classes", col=c("#1295ba","#dd731c","#2bba12"),
@@ -206,7 +204,7 @@ server <- shinyServer(function(input, output) {
   },rownames=FALSE)
   output$event_types_plot = renderPlot({
     ## lots of extra space in the margin for sides 2 and 4 (left and right)
-    op <- par(mar = c(4,18,1,18) + 0.1)
+    op <- par(mar = c(4,12,1,4) + 0.1)
     barplot(sort(table(outreach_events_table$Type),decreasing=FALSE),
              las=1,xlab="Count",col=c("#0066cc"),horiz=TRUE)
     par(op) ## reset
