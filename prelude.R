@@ -325,7 +325,7 @@ reformat <- function(x) {paste(as.vector(x),collapse="|")}
 
 downloadable_version <- function(df_sparks){
   # Set aside downloadable version of the dataframe
-  download_df <- df_sparks[order(-df_sparks$"30-day downloads"),]
+  download_df <- df_sparks[order(-df_sparks$"30-day unique downloads"),]
   download_df$`Monthly downloads*` <- as.character(lapply(download_df$`Monthly downloads*`,
                                                                  reformat))
   return(download_df)
@@ -333,7 +333,7 @@ downloadable_version <- function(df_sparks){
 
 make_datasparks_table <- function(df,fields,sparks_column){
   # Create jQuery version of dataframe with embedded sparklines
-  d0 <- df[order(-df$"30-day downloads"),]
+  d0 <- df[order(-df$"30-day unique downloads"),]
   
   d0 <- d0[,!(names(d0) %in% c("Downloads per pageview"))]
   d0 <- d0[fields]
@@ -448,7 +448,19 @@ eliminate_empty_fields <- function(df,field_list) {
 
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
-cached_mode <- FALSE
+cached_mode <- FALSE # Due to recent changes to the Boolean logic that
+# decides when data is refreshed, cached (offline) mode no longer works
+# as originally intended. To obtain cached-mode operation from RStudio:
+# 1) Use setwd() to set the working directory manually.
+# 2) > touch *.csv
+# 3) > touch *.xlsx
+# 4) production <- TRUE
+# 5) force_refresh <- FALSE
+
+# At this point the cached_mode variable probably only matters for Google
+# Sheeets refreshing and is close to being removable.
+
+
 include_API_calls <- TRUE 
 
 if(!cached_mode) {
