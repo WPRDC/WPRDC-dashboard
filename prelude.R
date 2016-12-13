@@ -315,7 +315,7 @@ merge_history_with_df <- function(df,history_f,id_field_name,number_of_months) {
   df_with_sparks <- merge(df,history_f,
                           by.x=id_field_name,by.y="id",all.x = TRUE)
   df_with_sparks <- rename(df_with_sparks,
-                           c("dl_history"="Monthly downloads"))
+                           c("dl_history"="Monthly downloads*"))
   
   df_with_sparks[is.na(df_with_sparks)] <- list(rep(0,number_of_months-1))
   return(df_with_sparks)  
@@ -326,7 +326,7 @@ reformat <- function(x) {paste(as.vector(x),collapse="|")}
 downloadable_version <- function(df_sparks){
   # Set aside downloadable version of the dataframe
   download_df <- df_sparks[order(-df_sparks$"30-day downloads"),]
-  download_df$`Monthly downloads` <- as.character(lapply(download_df$`Monthly downloads`,
+  download_df$`Monthly downloads*` <- as.character(lapply(download_df$`Monthly downloads*`,
                                                                  reformat))
   return(download_df)
 }
@@ -672,16 +672,19 @@ if(refresh_download_data) {
 ##### dataframe for downloading.
 id_field_name <- "Resource ID"
 sparks_column <- 3
-fields <- c("Package","Resource",
+df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
+                                     c("All-time API calls"="All-time API calls**",
+                                     "Package"="Dataset"))
+fields <- c("Dataset","Resource",
             "Organization",
-            "Monthly downloads",
+            "Monthly downloads*",
             "30-day downloads",
             "30-day unique downloads",
             "30-day pageviews",
             "All-time downloads",
             "All-time unique downloads",
             "All-time pageviews",
-            "All-time API calls")
+            "All-time API calls**")
 
 returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
                                                monthly_resource_downloads, 
@@ -692,8 +695,16 @@ returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
 d1 <- returned_list[[1]]
 resource_download_df <- returned_list[[2]]
 
+# The following command can be helpful in identifying the elements
+# and dimensions of a list in R:
+# lis <- lapply(d1[1], lapply, length)
 # Relabel some columns
-d1 <- rename(d1,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**"))
+#d1[1]$x$data <- rename(d1[1]$x$data,c("Monthly downloads"="Monthly downloads*",
+#                  "All-time API calls"="All-time API calls**",
+#                  "Dataset"="Package"))
+# The above command changes the names of the columns in the datatable nested
+# within the list d1, but it doesn't change the display names....
+# because they are in d1[1]$x$container.
 
 the_downloads_table <- d1
 ##### OUTPUTS USED BY app.R: the_downloads_table, resource_download_df
@@ -701,9 +712,11 @@ the_downloads_table <- d1
 # Likewise for packages:
 id_field_name <- "Package ID"
 sparks_column <- 2
-fields <- c("Package",
+package_downloads_and_pageviews <- rename(package_downloads_and_pageviews,
+                                     c("Package"="Dataset"))
+fields <- c("Dataset",
             "Organization",
-            "Monthly downloads",
+            "Monthly downloads*",
             "30-day downloads",
             "30-day unique downloads",
             "30-day pageviews",
@@ -720,9 +733,13 @@ returned_list <- make_sparks_table_and_bare_df(package_downloads_and_pageviews,
 
 d2 <- returned_list[[1]]
 package_download_df <- returned_list[[2]]
+package_download_df <- rename(package_download_df,
+                              c("Monthly downloads*"="Monthly downloads"))
 
 # Relabel some columns
-d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*","All-time API calls"="All-time API calls**"))
+d2 <- rename(d2,c("Monthly downloads"="Monthly downloads*",
+                  "All-time API calls"="All-time API calls**",
+                  "Dataset"="Package"))
 
 package_downloads_table <- d2
 

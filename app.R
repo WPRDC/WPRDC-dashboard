@@ -76,9 +76,10 @@ ui <- shinyUI(fluidPage(
                                    icon = icon("th"), 
                                    onclick ="window.open('https://data.wprdc.org/datastore/dump/d72725b1-f163-4378-9771-14ce9dad3002', '_blank')")
       ),
-      tabPanel("Dataset package stats",DT::dataTableOutput('package_table'),
+      tabPanel("Dataset stats",DT::dataTableOutput('package_table'),
+               HTML("<div style='font-size:80%'>* This data can be obtained by summing by dataset package the month-by-month list of downloads (which can be found <a href='https://data.wprdc.org/dataset/wprdc-statistics/resource/e8889e36-e4b1-4343-bb51-fb687eb9a2ff'>here</a>).</div>"),
                HTML("<div style='font-size:80%'>(Note that downloads have only been tracked since March 2016, while pageviews have been tracked since October 2015.)</div>"),
-               downloadButton('downloadPackageData', 'Download')
+               downloadButton('downloadDatasetData', 'Download')
       ),
       tabPanel("Classroom uses",
                plotOutput("uses_plot"),
@@ -177,11 +178,11 @@ server <- shinyServer(function(input, output) {
   output$package_table = DT::renderDataTable({
     package_downloads_table
   })
-  output$downloadPackageData <- downloadHandler(
+  output$downloadDatasetData <- downloadHandler(
     
     # This function returns a string which tells the client
     # browser what name to use when saving the file.
-    filename = "package_downloads_and_pageviews.csv",
+    filename = "dataset_downloads_and_pageviews.csv",
     
     # This function should write data to a file given to it by
     # the argument 'file'.
@@ -191,26 +192,6 @@ server <- shinyServer(function(input, output) {
       write.table(package_download_df, file, sep = sep, row.names = FALSE)
     }
   )
-#  output$by_package = DT::renderDataTable({
-#    package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"30-day downloads"),] 
-#  },options = list(lengthMenu = c(10, 25, 50), pageLength = 10),rownames=FALSE)
-#  output$downloadPackageData <- downloadHandler(
-    
-    # This function returns a string which tells the client
-    # browser what name to use when saving the file.
-#    filename = "package_downloads_and_pageviews.csv",
-    
-    # This function should write data to a file given to it by
-    # the argument 'file'.
-#    content = function(file) {
-#      sep <- ","
-      
-      # Write to a file specified by the 'file' argument
-#      write.table(package_downloads_and_pageviews[order(-package_downloads_and_pageviews$"30-day downloads"),], 
-#                  file, sep = sep,
-#                  row.names = FALSE)
-#    }
-#  )
   output$publishers = DT::renderDataTable({
     publishers
   },rownames=FALSE)
