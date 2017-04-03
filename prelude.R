@@ -814,7 +814,7 @@ etl_processes <- rename(etl_processes,
                        "Automated ETL list"="List of Datasets with Automated Import Processes"))
 etl_processes <- etl_processes[-c(1),] # Elimate first row
 etl_processes <- reverse_sort_by_Month(prepend_Month(etl_processes))
-na.omit(etl_processes)
+etl_processes <- na.omit(etl_processes)
 
 misc_other_stats <- other_web_stats[,(names(other_web_stats) %in% 
                                         c("Date","Discussion Posts",
@@ -822,14 +822,14 @@ misc_other_stats <- other_web_stats[,(names(other_web_stats) %in%
 misc_other_stats <- misc_other_stats[-c(1),]
 misc_other_stats[,2:3] <- sapply(misc_other_stats[, 2:3], as.integer)
 misc_other_stats <- reverse_sort_by_Month(prepend_Month(misc_other_stats))
-na.omit(misc_other_stats)
+misc_other_stats <- na.omit(misc_other_stats)
 
 social_media <- read_excel(cached_metrics_file, sheet = "Social Media")
 social_media <- social_media[-c(3,4),]
 twitter_followers <- social_media[,(names(social_media) %in% c("Period","Twitter Followers, End of period"))]
 Month <- as.integer(rownames(twitter_followers))
 twitter_followers <- reverse_sort_by_Month(cbind(Month,twitter_followers))
-na.omit(twitter_followers)
+twitter_followers <- na.omit(twitter_followers)
 
 media <- read_excel(cached_metrics_file, sheet = "Media")
 media_mentions <- nrow(media) - 1
