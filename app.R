@@ -106,7 +106,14 @@ ui <- shinyUI(fluidPage(
                HTML("<center style='font-size:140%'>Twitter-follower counts</center>"),
                dataTableOutput('twitter_followers')
       ),
-      tabPanel("About",
+      tabPanel("Top Tens",
+               fluidRow(
+                 column(12,
+                   HTML(paste("<br><div style='font-size:150%;margin-left:3em;'><b>Top 10 Datasets by Pageviews for the Last 30 Days</b><br>", convert_to_html_list(top_10_by_pageviews), "</div>", sep=" "))
+                 )
+               )
+      ),
+    tabPanel("About",
                fluidRow(
                  column(12,
                     includeHTML("about.html")

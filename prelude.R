@@ -63,6 +63,18 @@ library(RGA)
 # https://cran.r-project.org/web/packages/RGA/vignettes/authorize.html
 
 
+convert_to_html_list <- function(df) {
+  # A function that takes a dataframe and outputs a string representing 
+  # raw HTML to present the rows as an ordered HTML list.
+  s <- "<ol>"
+  for(i in 1:nrow(df)) {
+    row <- df[i,]
+    s <- paste(s,"<li>",row[[1]]," (",row[[2]],")</li>",sep="")
+  }
+  s <- paste(s,"</ol>",sep="")
+  return(s)
+}
+
 class_key <- function(x,y) {
   # A simple helper function to concatenate together two strings,
   # separated by a semicolon.
@@ -873,4 +885,8 @@ recent_events <- outreach_events_table[(day_number-as.numeric(outreach_events_ta
 sbm_users <- stacked_barplot_matrix(site_stats$users)
 sbm_sessions <- stacked_barplot_matrix(site_stats$sessions)
 sbm_pageviews <- stacked_barplot_matrix(site_stats$pageviews)
+
+# Top 10 lists
+pdap <- package_downloads_and_pageviews
+top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("Dataset","30-day pageviews")][c(1:10),]
 
