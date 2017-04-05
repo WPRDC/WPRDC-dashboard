@@ -183,6 +183,24 @@ name_datasets <- function(df) {
                                            resources$id[[k]],sep=""))
             }
           }
+          
+          if((length(resources$created) > 0)) {
+            if(is.na(resources$created[[k]])) {
+              age_in_months <- "No creation date"
+            } else {
+              age_in_days <- as.numeric(today - as.Date(resources$created[[k]],"%Y-%m-%dT%H:%M:%S"))
+              age_in_months <- age_in_days/(365.25/12)
+              # The problem with this approach is that a huge number of datasets
+              # (the GIS datasets that are "harvested" on a monthly basis) somehow
+              # have their "created" date reset. Thus, this will be stored as 
+              # "apparent age" and compared to Google Analytics data to try to
+              # get a better estimate.
+              
+              # package$metadata_created might be another interesting timestamp to consider.
+            }
+          }
+          
+          
           if(j*k == 1) {
             resource_map <- data_frame(Package=c(package$title),
                                        Resource=c(resource),
@@ -190,7 +208,8 @@ name_datasets <- function(df) {
                                        id=c(resources$id[[k]]),
                                        package_id=c(resources$package_id[[k]]),
                                        package_path=c(package_url_path),
-                                       resource_path=c(resource_url_path))
+                                       resource_path=c(resource_url_path),
+                                       apparent_age=c(age_in_months))
           } else {
             resource_map <- rbind(resource_map, 
                                   c(package$title,
@@ -199,7 +218,8 @@ name_datasets <- function(df) {
                                     resources$id[[k]],
                                     resources$package_id[[k]],
                                     package_url_path,
-                                    resource_url_path))
+                                    resource_url_path,
+                                    age_in_months))
           }
         }
       }
@@ -421,6 +441,54 @@ prepend_Month <- function(df) {
 reverse_sort_by_Month <- function(df) {
   return(df[order(df$"Month",decreasing=TRUE),])
 }
+
+months_ago <- function(year,month,day) {
+  age_in_days <- as.numeric(today - as.Date(paste(year,month,day,sep="-"),"%Y-%m-%d"))
+  age_in_months <- age_in_days/(365.25/12)
+  return(age_in_months)
+}
+
+first_download_by_resource <- function(df0) {
+  # Cull through the passed dataframe (like monthly_resource_downloads) and
+  # pull out the first month when a download occurred for a given thing, according
+  # to Google Analytics. Also include an "inferred_age" column, giving the time since
+  # the first download.
+  df <- df0[order(df0$`Resource ID`,df0$`Year+month`,decreasing = FALSE),]
+  current_id <- ""
+  found <- FALSE
+  i <- 1
+  j <- 1
+  while(i <= nrow(df)) {
+    if(current_id==df$`Resource ID`[[i]]) {
+      if(!found) {
+        if(df$Downloads[[i]] > 0) {
+          year1 <- as.numeric(as.character(df$year[[i]]))
+          month1 <- as.numeric(as.character(df$month[[i]]))
+          months_back <- as.numeric(as.character(months_ago(year1,sprintf("%02d",month1),"01")))
+          if(j==1) {
+            mofd <- data_frame(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, inferred_age = months_back)
+          } else {
+            new_row <- list(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, inferred_age = months_back)
+            mofd <- rbind(mofd, new_row)
+          }
+          j <- j+1
+          found <- TRUE
+        }
+      }
+    } else {
+      current_id <- df$`Resource ID`[[i]]
+      i <- i-1 
+      found <- FALSE
+    }
+    i <- i+1 
+  }
+  #if(!found) { #No first download was found for the last resource
+  # Add nothing to the data frame, since that's what is being done 
+  # for the others.
+  #}
+  return(mofd) #months_of_first_download
+}
+
 stacked_barplot_matrix <- function(v) {
   data <- matrix(c(v[seq(1,length(v)-1)],0*v,v[c(length(v))]),nrow=2,byrow=T)
   return(data)
@@ -456,7 +524,7 @@ adjust_axis_and_plot <- function(mtrx,y_label,month_list,hues) {
 
 
 within_n_days_of <- function(df,n,last_date) {
-  difference_in_days <- today-as.Date(df$Date,"%m/%d/%Y")
+  difference_in_days <- today - as.Date(df$Date,"%m/%d/%Y")
   df <- df[difference_in_days <= n,]
   return(df)
 }
@@ -564,6 +632,8 @@ monthly_package_downloads <- refresh_it(get_monthly_package_downloads,
                                         refresh_mpd,
                                         monthly_package_downloads_cache)
 
+months_of_first_download <- first_download_by_resource(monthly_resource_downloads)
+
 resource_d_and_p_file <- "df_downloads_and_pageviews.csv"
 package_d_and_p_file <- "package_downloads_and_pageviews.csv"
 refresh_resource_info <- refresh_boolean(resource_d_and_p_file,30,cached_mode)
@@ -603,13 +673,14 @@ if(refresh_download_data) {
   }
   df_downloads <- name_datasets(df_downloads)
 #  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id","package_id"))]
-  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id"))]
   df_pageviews_month <- get_pageviews_gar(today-days(x=30),yesterday,p_Id,production)
   df_pageviews_all <- get_pageviews_gar("2015-10-15",yesterday,p_Id,production)
+  df_downloads <- df_downloads[,!(names(df_downloads) %in% c("id"))]
   df_downloads_and_pageviews <- merge(df_downloads,df_pageviews_month,
                                       by.x="resource_path",by.y="pagePath",all.x=TRUE)
   # Making the above merge an all.x=TRUE merge eliminates a lot of paths that 
   # are not resources.
+  
   df_downloads_and_pageviews[is.na(df_downloads_and_pageviews)] <- 0
   df_downloads_and_pageviews <- rename(df_downloads_and_pageviews,
                          c("pageviews"="30-day pageviews"))
@@ -624,7 +695,12 @@ if(refresh_download_data) {
   #df_downloads_and_pageviews$`Downloads per pageview` <- format(df_downloads_and_pageviews$`30-day unique downloads`/df_downloads_and_pageviews$`30-day pageviews`,digits=1)
   
   resource_ids <- as.vector(mapply(function(x) gsub(".*\\/", "",x),df_downloads_and_pageviews$resource_path))
-  df_downloads_and_pageviews$`Resource ID` <- resource_ids
+  df_downloads_and_pageviews$`Resource ID` <- resource_ids # Aren't the resource IDs already
+  # available from the "id" field in df_downloads? Why did I strip that out in the first
+  # place?
+  df_downloads_and_pageviews <- merge(df_downloads_and_pageviews,months_of_first_download,
+                                      by.x="Resource ID", by.y="id", all.x=TRUE)
+  
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Resource",
                                                              "Organization",
                                                              "30-day downloads",
@@ -635,8 +711,10 @@ if(refresh_download_data) {
                                                              "All-time pageviews",
                                                              "All-time API calls",
                                                              #"Downloads per pageview",
+                                                             "inferred_age",
+                                                             #"months ago",
                                                              "Resource ID")]
-  
+
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
   
   downloads_by_package <- group_by_package(df_downloads)
