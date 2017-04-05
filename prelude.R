@@ -184,22 +184,6 @@ name_datasets <- function(df) {
             }
           }
           
-          if((length(resources$created) > 0)) {
-            if(is.na(resources$created[[k]])) {
-              age_in_months <- "No creation date"
-            } else {
-              age_in_days <- as.numeric(today - as.Date(resources$created[[k]],"%Y-%m-%dT%H:%M:%S"))
-              age_in_months <- age_in_days/(365.25/12)
-              # The problem with this approach is that a huge number of datasets
-              # (the GIS datasets that are "harvested" on a monthly basis) somehow
-              # have their "created" date reset. Thus, this will be stored as 
-              # "apparent age" and compared to Google Analytics data to try to
-              # get a better estimate.
-              
-              # package$metadata_created might be another interesting timestamp to consider.
-            }
-          }
-          
           
           if(j*k == 1) {
             resource_map <- data_frame(Package=c(package$title),
@@ -208,8 +192,7 @@ name_datasets <- function(df) {
                                        id=c(resources$id[[k]]),
                                        package_id=c(resources$package_id[[k]]),
                                        package_path=c(package_url_path),
-                                       resource_path=c(resource_url_path),
-                                       apparent_age=c(age_in_months))
+                                       resource_path=c(resource_url_path))
           } else {
             resource_map <- rbind(resource_map, 
                                   c(package$title,
@@ -218,8 +201,7 @@ name_datasets <- function(df) {
                                     resources$id[[k]],
                                     resources$package_id[[k]],
                                     package_url_path,
-                                    resource_url_path,
-                                    age_in_months))
+                                    resource_url_path))
           }
         }
       }
@@ -453,6 +435,15 @@ first_download_by_resource <- function(df0) {
   # pull out the first month when a download occurred for a given thing, according
   # to Google Analytics. Also include an "inferred_age" column, giving the time since
   # the first download.
+  
+  # The other approach would be to use the "created" date in the CKAN
+  # metadata for each resource. The problem with this approach is that 
+  # a huge number of datasets (the GIS datasets that are "harvested" 
+  # on a monthly basis) somehow have their "created" date reset. 
+
+  # package$metadata_created might be another interesting timestamp to 
+  # consider using.
+  
   df <- df0[order(df0$`Resource ID`,df0$`Year+month`,decreasing = FALSE),]
   current_id <- ""
   found <- FALSE
@@ -712,7 +703,6 @@ if(refresh_download_data) {
                                                              "All-time API calls",
                                                              #"Downloads per pageview",
                                                              "inferred_age",
-                                                             #"months ago",
                                                              "Resource ID")]
 
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
