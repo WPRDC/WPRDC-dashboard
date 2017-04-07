@@ -958,3 +958,6 @@ sbm_pageviews <- stacked_barplot_matrix(site_stats$pageviews)
 pdap <- package_downloads_and_pageviews
 top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("Dataset","30-day pageviews")][c(1:10),]
 
+df_downloads_and_pageviews$downloads_per_month = df_downloads_and_pageviews$`All-time downloads`/df_downloads_and_pageviews$inferred_age
+df_downloads_and_pageviews$pageviews_per_month = df_downloads_and_pageviews$`All-time pageviews`/df_downloads_and_pageviews$inferred_age
+
