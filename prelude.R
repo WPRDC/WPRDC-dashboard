@@ -433,7 +433,7 @@ months_ago <- function(year,month,day) {
 first_download_by_resource <- function(df0) {
   # Cull through the passed dataframe (like monthly_resource_downloads) and
   # pull out the first month when a download occurred for a given thing, according
-  # to Google Analytics. Also include an "inferred_age" column, giving the time since
+  # to Google Analytics. Also include an "months_since_first_download" column, giving the time since
   # the first download.
   
   # The other approach would be to use the "created" date in the CKAN
@@ -457,9 +457,9 @@ first_download_by_resource <- function(df0) {
           month1 <- as.numeric(as.character(df$month[[i]]))
           months_back <- as.numeric(as.character(months_ago(year1,sprintf("%02d",month1),"01")))
           if(j==1) {
-            mofd <- data_frame(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, inferred_age = months_back)
+            mofd <- data_frame(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, months_since_first_download = months_back)
           } else {
-            new_row <- list(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, inferred_age = months_back)
+            new_row <- list(id = df$`Resource ID`[[i]], first_year = year1, first_month = month1, months_since_first_download = months_back)
             mofd <- rbind(mofd, new_row)
           }
           j <- j+1
@@ -702,7 +702,7 @@ if(refresh_download_data) {
                                                              "All-time pageviews",
                                                              "All-time API calls",
                                                              #"Downloads per pageview",
-                                                             "inferred_age",
+                                                             "months_since_first_download",
                                                              "Resource ID")]
 
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
@@ -958,6 +958,6 @@ sbm_pageviews <- stacked_barplot_matrix(site_stats$pageviews)
 pdap <- package_downloads_and_pageviews
 top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("Dataset","30-day pageviews")][c(1:10),]
 
-df_downloads_and_pageviews$downloads_per_month = df_downloads_and_pageviews$`All-time downloads`/df_downloads_and_pageviews$inferred_age
-df_downloads_and_pageviews$pageviews_per_month = df_downloads_and_pageviews$`All-time pageviews`/df_downloads_and_pageviews$inferred_age
+df_downloads_and_pageviews$downloads_per_month = df_downloads_and_pageviews$`All-time downloads`/df_downloads_and_pageviews$months_since_first_download
+df_downloads_and_pageviews$pageviews_per_month = df_downloads_and_pageviews$`All-time pageviews`/df_downloads_and_pageviews$months_since_first_download
 
