@@ -81,7 +81,9 @@ convert_to_html_list_4 <- function(df) {
   s <- "<ol>"
   for(i in 1:nrow(df)) {
     row <- df[i,]
-    s <- paste(s,"<li>",row[[1]]," (",round(row[[2]],1)," [",row[[3]]," pageviews over about ",round(row[[4]],1)," months])</li>",sep="")
+    units <- "months"
+    if(round(row[[4]]) == 1) { units <- "month"}
+    s <- paste(s,"<li>",row[[1]]," (",round(row[[2]],1)," [",row[[3]]," pageviews over ~",round(row[[4]],0)," ",units,"])</li>",sep="")
   }
   s <- paste(s,"</ol>",sep="")
   return(s)
