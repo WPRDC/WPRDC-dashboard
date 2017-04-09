@@ -75,6 +75,19 @@ convert_to_html_list <- function(df) {
   return(s)
 }
 
+convert_to_html_list_4 <- function(df) {
+  # A function that takes a dataframe and outputs a string representing 
+  # raw HTML to present the rows as an ordered HTML list.
+  s <- "<ol>"
+  for(i in 1:nrow(df)) {
+    row <- df[i,]
+    s <- paste(s,"<li>",row[[1]]," (",round(row[[2]],1)," [",row[[3]]," pageviews over about ",round(row[[4]],1)," months])</li>",sep="")
+  }
+  s <- paste(s,"</ol>",sep="")
+  return(s)
+}
+
+
 class_key <- function(x,y) {
   # A simple helper function to concatenate together two strings,
   # separated by a semicolon.
@@ -433,8 +446,9 @@ months_ago <- function(year,month,day) {
 first_download_by_resource <- function(df0) {
   # Cull through the passed dataframe (like monthly_resource_downloads) and
   # pull out the first month when a download occurred for a given thing, according
-  # to Google Analytics. Also include an "months_since_first_download" column, giving the time since
-  # the first download.
+  # to Google Analytics. Also include a "months_since_first_download" column.
+  # (Note that months_since_first_pageview could also be determined,
+  # albeit with more effort.)
   
   # The other approach would be to use the "created" date in the CKAN
   # metadata for each resource. The problem with this approach is that 
@@ -960,4 +974,17 @@ top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("D
 
 df_downloads_and_pageviews$downloads_per_month = df_downloads_and_pageviews$`All-time downloads`/df_downloads_and_pageviews$months_since_first_download
 df_downloads_and_pageviews$pageviews_per_month = df_downloads_and_pageviews$`All-time pageviews`/df_downloads_and_pageviews$months_since_first_download
+rdap <- df_downloads_and_pageviews
+rdap_older <- rdap[rdap$months_since_first_download > 1,] # Eliminate
+# resources that have only recently had their first download, as the
+# results may be skewed.
+top_10_by_average_pageviews <- rdap_older[order(rdap_older$pageviews_per_month,decreasing=TRUE), c("Resource","pageviews_per_month","All-time pageviews","months_since_first_download")][c(1:10),]
 
+
+# The ratios of 30-day pageviews to pageviews per month and 
+# 30-day downloads to downloads per month have not been as interesting
+# as originally expected. The latter has a lot of data-dictionary
+# downloads, suggesting that we may be seeing random fluctuations 
+# cause a lot of odd things to bubble to the top for that metric.
+# Small values for 30-day pageviews can also lead some rarely viewed 
+# resources to jump to the top of the list based on a few hits.

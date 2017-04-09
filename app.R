@@ -109,7 +109,8 @@ ui <- shinyUI(fluidPage(
       tabPanel("Top Tens",
                fluidRow(
                  column(12,
-                   HTML(paste("<br><div style='font-size:150%;margin-left:3em;'><b>Top 10 Datasets by Pageviews for the Last 30 Days</b><br>", convert_to_html_list(top_10_by_pageviews), "</div>", sep=" "))
+                   HTML(paste("<br><div style='font-size:150%;margin-left:3em;'><b>Top 10 Datasets by Pageviews for the Last 30 Days</b><br>", convert_to_html_list(top_10_by_pageviews), "</div>", sep=" ")),
+                   HTML(paste("<br><div style='font-size:150%;margin-left:3em;'><b>Top 10 Datasets by Average Pageviews since First Download</b><br>", convert_to_html_list_4(top_10_by_average_pageviews), "</div>", sep=" "))
                  )
                )
       ),
