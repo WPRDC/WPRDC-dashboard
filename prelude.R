@@ -163,10 +163,12 @@ reduce_to_category <- function(df,category) {
 }
 
 name_datasets <- function(df) {
-  # Pull from the Data Center's CKAN API a list of all resources and use this to
-  # obtain resource names, organizations, package names, and ID values to label
-  # the Google Analytics statistics (which are listed by resource ID).
-  json_file <- "https://data.wprdc.org/api/3/action/current_package_list_with_resources?limit=9999"
+  # Pull from the Data Center's CKAN API a list of all resources and use 
+  # this to obtain resource names, organizations, package names, ID values,
+  # and URLs to label the Google Analytics statistics (which are listed 
+  # by resource ID).
+  host <- "data.wprdc.org"
+  json_file <- paste("https://",host,"/api/3/action/current_package_list_with_resources?limit=9999",sep="")
   json_data <- fromJSON(json_file)
   
   cached_resource_map_file <- "cached_resource_map.csv"
@@ -207,7 +209,9 @@ name_datasets <- function(df) {
                                        id=c(resources$id[[k]]),
                                        package_id=c(resources$package_id[[k]]),
                                        package_path=c(package_url_path),
-                                       resource_path=c(resource_url_path))
+                                       package_url=c(paste("https://",host,package_url_path,sep="")),
+                                       resource_path=c(resource_url_path),
+                                       resource_url=c(paste("https://",host,resource_url_path,sep="")))
           } else {
             resource_map <- rbind(resource_map, 
                                   c(package$title,
@@ -216,7 +220,9 @@ name_datasets <- function(df) {
                                     resources$id[[k]],
                                     resources$package_id[[k]],
                                     package_url_path,
-                                    resource_url_path))
+                                    paste("https://",host,package_url_path,sep=""),
+                                    resource_url_path,
+                                    paste("https://",host,resource_url_path,sep="")))
           }
         }
       }
@@ -291,6 +297,7 @@ group_by_package <- function(df) {
                             "All-time unique downloads"=c(dl_all_unique),
                             Resources=c(nrow(matched_rows)),
                             package_path=c(matched_rows$package_path[[1]]),
+                            package_url=c(matched_rows$package_url[[1]]),
                             "Package ID"=c(matched_rows$package_id[[1]]))
     } else {
       grouped <- rbind(grouped, 
@@ -302,6 +309,7 @@ group_by_package <- function(df) {
                          dl_all_unique,
                          nrow(matched_rows),
                          matched_rows$package_path[[1]],
+                         matched_rows$package_url[[1]],
                          matched_rows$package_id[[1]]))
     }
   }
@@ -402,7 +410,8 @@ make_datasparks_table <- function(df,fields,sparks_column){
 
 make_sparks_table_and_bare_df <- function(df_downloads_and_pageviews,
                                           monthly_downloads,fields,
-                                          id_field_name, sparks_column) {
+                                          id_field_name, sparks_column,
+                                          url_field,field_to_link) {
   # Take the base dataset and the one with the lists to be embedded in
   # individual rows (the histories of downloads by month) and return
   # 1) the jQuery table thing that has embedded sparklines and 
@@ -416,7 +425,11 @@ make_sparks_table_and_bare_df <- function(df_downloads_and_pageviews,
                                     history_frame,id_field_name,
                                     number_of_months)
   download_df <- downloadable_version(df_sparks)
-  
+
+  for(k in 1:length(row.names(df_sparks))) {
+    df_sparks[names(df_sparks)==field_to_link][k,] <- paste("<a href='",df_sparks[names(df_sparks)==url_field][k,],"'>",df_sparks[names(df_sparks)==field_to_link][k,],'</a>',sep="") 
+  }
+
   df_downloads_and_pageviews <- df_sparks[,!(names(df_sparks) %in% c(id_field_name))]
   
   d1 <- make_datasparks_table(df_downloads_and_pageviews,fields,sparks_column)
@@ -719,6 +732,8 @@ if(refresh_download_data) {
                                                              "All-time API calls",
                                                              #"Downloads per pageview",
                                                              "months_since_first_download",
+                                                             "resource_url",
+                                                             "package_url",
                                                              "Resource ID")]
 
   write.csv(df_downloads_and_pageviews, resource_d_and_p_file, row.names=FALSE)
@@ -745,6 +760,7 @@ if(refresh_download_data) {
                                                              "All-time pageviews",
 #                                                             "All-time API calls",
                                                              "Resources",
+                                                             "package_url",
                                                              "Package ID")]
   
   
@@ -807,10 +823,14 @@ returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
                                                monthly_resource_downloads, 
                                                fields,
                                                id_field_name, 
-                                               sparks_column)
+                                               sparks_column,
+                                               "resource_url",
+                                               "Resource")
 
 d1 <- returned_list[[1]]
 resource_download_df <- returned_list[[2]]
+
+resource_download_df <- resource_download_df[,!(names(resource_download_df) %in% c("resource_url","package_url","months_since_first_download"))] 
 
 # The following command can be helpful in identifying the elements
 # and dimensions of a list in R:
@@ -846,10 +866,13 @@ returned_list <- make_sparks_table_and_bare_df(package_downloads_and_pageviews,
                                                monthly_package_downloads, 
                                                fields,
                                                id_field_name, 
-                                               sparks_column)
+                                               sparks_column,
+                                               "package_url",
+                                               "Dataset")
 
 d2 <- returned_list[[1]]
 package_download_df <- returned_list[[2]]
+package_download_df <- package_download_df[,!(names(package_download_df) %in% c("resource_url","package_url","months_since_first_download"))] 
 package_download_df <- rename(package_download_df,
                               c("Monthly downloads*"="Monthly downloads"))
 
