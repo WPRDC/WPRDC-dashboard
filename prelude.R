@@ -69,7 +69,8 @@ convert_to_html_list <- function(df) {
   s <- "<ol>"
   for(i in 1:nrow(df)) {
     row <- df[i,]
-    s <- paste(s,"<li>",row[[1]]," (",row[[2]],")</li>",sep="")
+    name <- paste("<a href='",row$url,"'>",row[[1]],"</a>",sep="")
+    s <- paste(s,"<li>",name," (",row[[2]],")</li>",sep="")
   }
   s <- paste(s,"</ol>",sep="")
   return(s)
@@ -82,8 +83,9 @@ convert_to_html_list_4 <- function(df) {
   for(i in 1:nrow(df)) {
     row <- df[i,]
     units <- "months"
+    name <- paste("<a href='",row$url,"'>",row[[1]],"</a>",sep="")
     if(round(row[[4]]) == 1) { units <- "month"}
-    s <- paste(s,"<li>",row[[1]]," (",round(row[[2]],1)," [",row[[3]]," pageviews over ~",round(row[[4]],0)," ",units,"])</li>",sep="")
+    s <- paste(s,"<li>",name," (",round(row[[2]],1)," [",row[[3]]," pageviews over ~",round(row[[4]],0)," ",units,"])</li>",sep="")
   }
   s <- paste(s,"</ol>",sep="")
   return(s)
@@ -322,8 +324,8 @@ group_by_package <- function(df) {
 
 generate_wide_dd <- function(monthly_df,id_field_name){
   mdd <- monthly_df
-  names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname)
-  names(mdd)[names(mdd)=="Year.month"] <- "ym"
+  names(mdd)[names(mdd)=="Year+month"] <- "ym" # Maybe define rename_dataframe_field(df,oldname,newname) ...
+  names(mdd)[names(mdd)=="Year.month"] <- "ym" # ... Actually, the rest of this script uses the plyr::rename function.
   names(mdd)[names(mdd)==id_field_name] <- "id"
   names(mdd)[names(mdd)==gsub(" ", ".", id_field_name)] <- "id"
   wide_mdd <- dcast(mdd,id ~ ym,value.var="Downloads") # Excludes "Unique downloads"
@@ -995,7 +997,9 @@ sbm_pageviews <- stacked_barplot_matrix(site_stats$pageviews)
 
 # Top 10 lists
 pdap <- package_downloads_and_pageviews
-top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("Dataset","30-day pageviews")][c(1:10),]
+top_10_by_pageviews <- pdap[order(pdap$"30-day pageviews",decreasing=TRUE), c("Dataset","30-day pageviews","package_url")][c(1:10),]
+top_10_by_pageviews <- rename(top_10_by_pageviews,
+                              c("package_url"="url"))
 
 df_downloads_and_pageviews$downloads_per_month = df_downloads_and_pageviews$`All-time downloads`/df_downloads_and_pageviews$months_since_first_download
 df_downloads_and_pageviews$pageviews_per_month = df_downloads_and_pageviews$`All-time pageviews`/df_downloads_and_pageviews$months_since_first_download
@@ -1003,7 +1007,9 @@ rdap <- df_downloads_and_pageviews
 rdap_older <- rdap[rdap$months_since_first_download > 1,] # Eliminate
 # resources that have only recently had their first download, as the
 # results may be skewed.
-top_10_by_average_pageviews <- rdap_older[order(rdap_older$pageviews_per_month,decreasing=TRUE), c("Resource","pageviews_per_month","All-time pageviews","months_since_first_download")][c(1:10),]
+top_10_by_average_pageviews <- rdap_older[order(rdap_older$pageviews_per_month,decreasing=TRUE), c("Resource","pageviews_per_month","All-time pageviews","months_since_first_download","resource_url")][c(1:10),]
+top_10_by_average_pageviews <- rename(top_10_by_average_pageviews,
+                              c("resource_url"="url"))
 
 
 # The ratios of 30-day pageviews to pageviews per month and 
