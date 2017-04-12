@@ -150,7 +150,7 @@ server <- shinyServer(function(input, output) {
     counts <- xtabs(count ~ reorder(institution,index) + reorder(term,index), df_uses)
     barplot(counts, 
             xlab="Term", ylab="Classes", col=c("#1295ba","#dd731c","#2bba12"),
-            legend = rownames(counts), beside=TRUE, cex.names=1.5, cex.lab=1.5)
+            legend = rownames(counts), args.legend = list(x="topleft",inset=c(0.05,0.05)), beside=TRUE, cex.names=1.5, cex.lab=1.5)
     #chrt <- barchart(count~reorder(term,index),data=df_uses,groups=reorder(institution,index),
     #         col=c("#1295ba","#c12e38","#2bba12"),
     #         ylab=list(label="Count",cex=1.7),
