@@ -559,18 +559,26 @@ eliminate_empty_fields <- function(df,field_list) {
 
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
-cached_mode <- FALSE # Due to recent changes to the Boolean logic that
-# decides when data is refreshed, cached (offline) mode no longer works
-# as originally intended. To obtain cached-mode operation from RStudio:
+cached_mode <- TRUE # To obtain cached-mode operation from RStudio:
 # 1) Use setwd() to set the working directory manually.
 # 2) > touch *.csv
 # 3) > touch *.xlsx
 # 4) production <- TRUE
 # 5) force_refresh <- FALSE
 
-# At this point the cached_mode variable probably only matters for Google
-# Sheeets refreshing and is close to being removable.
-
+local_path <- "/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard"
+if(cached_mode) {
+  setwd(local_path)
+  files_to_touch <- list.files(pattern="*.(csv|xlsx)")
+  for(f in files_to_touch) {
+    print(f)
+    Sys.setFileTime(f,Sys.time())
+  }
+  production <- TRUE
+  force_refresh <- FALSE
+}
+# At this point, other than the above if-then clause, the cached_mode 
+# variable probably only matters for Google Sheeets refreshing.
 
 include_API_calls <- TRUE 
 
@@ -583,7 +591,7 @@ if(!cached_mode) {
 today <- Sys.Date()
 yesterday <- today - days(x=1)
 if(!production) {
-    setwd("/Users/drw/WPRDC/Dashboards/Shiny/WPRDC-dashboard")
+    setwd(local_path)
 } else {
   source("setwd_to_file_location.R")
 }
@@ -645,6 +653,10 @@ refresh_md <- refresh_md | !production
 monthly_resource_downloads <- refresh_it(get_monthly_resource_downloads,
                                         refresh_md,
                                         monthly_downloads_cache)
+monthly_resource_downloads <- rename(monthly_resource_downloads,
+                        c("Year.month"="Year+month",
+                          "Resource.ID"="Resource ID",
+                          "Unique.downloads"="Unique downloads"))
 
 monthly_package_downloads_cache <- "monthly_package_downloads.csv"
 refresh_mpd <- refresh_boolean(monthly_package_downloads_cache,24*60,cached_mode)
