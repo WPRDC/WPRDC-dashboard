@@ -571,7 +571,6 @@ if(cached_mode) {
   setwd(local_path)
   files_to_touch <- list.files(pattern="*.(csv|xlsx)")
   for(f in files_to_touch) {
-    print(f)
     Sys.setFileTime(f,Sys.time())
   }
   production <- TRUE
