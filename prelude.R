@@ -405,7 +405,13 @@ make_datasparks_table <- function(df,fields,sparks_column){
   d1 <- datatable(d0, options = list(
     columnDefs = columnDefs,
     fnDrawCallback = fnDrawCallback
-  ), rownames= FALSE)
+  ), rownames = FALSE, escape = FALSE)
+  # It's necessary to use the escape = FALSE option here to 
+  # overcome an issue where, when this app is actually deployed, 
+  # hyperlinks in DataTables start getting quoted and showing up
+  # as non-linking text strings (though this behavior is not observed
+  # in RStudio or locally).
+  
   d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency('sparkline'))
   return(d1)
 }
@@ -429,7 +435,7 @@ make_sparks_table_and_bare_df <- function(df_downloads_and_pageviews,
   download_df <- downloadable_version(df_sparks)
 
   for(k in 1:length(row.names(df_sparks))) {
-    df_sparks[names(df_sparks)==field_to_link][k,] <- paste("<a href='",df_sparks[names(df_sparks)==url_field][k,],"'>",df_sparks[names(df_sparks)==field_to_link][k,],'</a>',sep="") 
+    df_sparks[names(df_sparks)==field_to_link][k,] <- paste0("<a href='",df_sparks[names(df_sparks)==url_field][k,],"'>",df_sparks[names(df_sparks)==field_to_link][k,],'</a>')
   }
 
   df_downloads_and_pageviews <- df_sparks[,!(names(df_sparks) %in% c(id_field_name))]
@@ -559,7 +565,7 @@ eliminate_empty_fields <- function(df,field_list) {
 
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
-cached_mode <- TRUE # To obtain cached-mode operation from RStudio:
+cached_mode <- FALSE # To obtain cached-mode operation from RStudio:
 # 1) Use setwd() to set the working directory manually.
 # 2) > touch *.csv
 # 3) > touch *.xlsx
@@ -841,6 +847,7 @@ returned_list <- make_sparks_table_and_bare_df(df_downloads_and_pageviews,
                                                "Resource")
 
 d1 <- returned_list[[1]]
+
 resource_download_df <- returned_list[[2]]
 
 resource_download_df <- resource_download_df[,!(names(resource_download_df) %in% c("resource_url","package_url","months_since_first_download"))] 
