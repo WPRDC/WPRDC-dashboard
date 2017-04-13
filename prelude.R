@@ -69,10 +69,10 @@ convert_to_html_list <- function(df) {
   s <- "<ol>"
   for(i in 1:nrow(df)) {
     row <- df[i,]
-    name <- paste("<a href='",row$url,"'>",row[[1]],"</a>",sep="")
-    s <- paste(s,"<li>",name," (",row[[2]],")</li>",sep="")
+    name <- paste0("<a href='",row$url,"'>",row[[1]],"</a>")
+    s <- paste0(s,"<li>",name," (",row[[2]],")</li>")
   }
-  s <- paste(s,"</ol>",sep="")
+  s <- paste0(s,"</ol>")
   return(s)
 }
 
@@ -83,11 +83,11 @@ convert_to_html_list_4 <- function(df) {
   for(i in 1:nrow(df)) {
     row <- df[i,]
     units <- "months"
-    name <- paste("<a href='",row$url,"'>",row[[1]],"</a>",sep="")
+    name <- paste0("<a href='",row$url,"'>",row[[1]],"</a>")
     if(round(row[[4]]) == 1) { units <- "month"}
-    s <- paste(s,"<li>",name," (",round(row[[2]],1)," [",row[[3]]," pageviews over ~",round(row[[4]],0)," ",units,"])</li>",sep="")
+    s <- paste0(s,"<li>",name," (",round(row[[2]],1)," [",row[[3]]," pageviews over ~",round(row[[4]],0)," ",units,"])</li>")
   }
-  s <- paste(s,"</ol>",sep="")
+  s <- paste0(s,"</ol>")
   return(s)
 }
 
@@ -170,7 +170,7 @@ name_datasets <- function(df) {
   # and URLs to label the Google Analytics statistics (which are listed 
   # by resource ID).
   host <- "data.wprdc.org"
-  json_file <- paste("https://",host,"/api/3/action/current_package_list_with_resources?limit=9999",sep="")
+  json_file <- paste0("https://",host,"/api/3/action/current_package_list_with_resources?limit=9999")
   json_data <- fromJSON(json_file)
   
   cached_resource_map_file <- "cached_resource_map.csv"
@@ -193,13 +193,13 @@ name_datasets <- function(df) {
           } else {
             resource <- resources$name[[k]]
           }
-          package_url_path <- c(paste("/dataset/",package$name,sep=""))
+          package_url_path <- c(paste0("/dataset/",package$name))
           if((length(resources$id) > 0)) {
             if(is.na(resources$id[[k]]) | !exists("package_url_path")) {
               resource_url_path <- "No resource path"
             } else {
-              resource_url_path <- c(paste(package_url_path,"/resource/",
-                                           resources$id[[k]],sep=""))
+              resource_url_path <- c(paste0(package_url_path,"/resource/",
+                                           resources$id[[k]]))
             }
           }
           
@@ -211,9 +211,9 @@ name_datasets <- function(df) {
                                        id=c(resources$id[[k]]),
                                        package_id=c(resources$package_id[[k]]),
                                        package_path=c(package_url_path),
-                                       package_url=c(paste("https://",host,package_url_path,sep="")),
+                                       package_url=c(paste0("https://",host,package_url_path)),
                                        resource_path=c(resource_url_path),
-                                       resource_url=c(paste("https://",host,resource_url_path,sep="")))
+                                       resource_url=c(paste0("https://",host,resource_url_path)))
           } else {
             resource_map <- rbind(resource_map, 
                                   c(package$title,
@@ -222,9 +222,9 @@ name_datasets <- function(df) {
                                     resources$id[[k]],
                                     resources$package_id[[k]],
                                     package_url_path,
-                                    paste("https://",host,package_url_path,sep=""),
+                                    paste0("https://",host,package_url_path),
                                     resource_url_path,
-                                    paste("https://",host,resource_url_path,sep="")))
+                                    paste0("https://",host,resource_url_path)))
           }
         }
       }
