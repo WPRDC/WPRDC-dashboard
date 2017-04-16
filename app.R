@@ -40,8 +40,8 @@ ui <- shinyUI(fluidPage(
     HTML("<div style='background-color:white;float:left;color:black;
          width:100%;margin:0;padding:0;left:0;
          font-size:200%'>Data Center Metrics (Beta)"),
-    HTML("<span style='float:right'>"),
-    img(src="images/small-WPRDC-logo-inverted.png"),
+    HTML("<span style='float:right;margin-right:1em'>"),
+    img(src="images/wprdc_wordmark.png", height="64"),
     HTML("</span>"),
     # Shiny R wants all images and JavaScript and stuff to be nested in a
     # folder called "www" which is in the same directory as app.R.
