@@ -1,8 +1,14 @@
 .ga-token.rds
 .httr-oauth
 authentication.R
+google-auth.json
+google_authentication/
 wprdc_profile.R
 .RData
 .RHistory
 *.csv
 *.xlsx
+rgoogleanalytics_oauth_token
+sample_crontab_file
+tmp/
+obsolete/
