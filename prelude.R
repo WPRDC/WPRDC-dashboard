@@ -565,7 +565,7 @@ eliminate_empty_fields <- function(df,field_list) {
 
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
-cached_mode <- FALSE # To obtain cached-mode operation from RStudio:
+cached_mode <- TRUE # To obtain cached-mode operation from RStudio:
 # 1) Use setwd() to set the working directory manually.
 # 2) > touch *.csv
 # 3) > touch *.xlsx
@@ -595,10 +595,12 @@ if(!cached_mode) {
 
 today <- Sys.Date()
 yesterday <- today - days(x=1)
-if(!production) {
+if(!cached_mode) {
+  if(!production) {
     setwd(local_path)
-} else {
-  source("setwd_to_file_location.R")
+  } else {
+    source("setwd_to_file_location.R")
+  }
 }
 
 cached_metrics_file = "cached_metrics_sheet.xlsx"
