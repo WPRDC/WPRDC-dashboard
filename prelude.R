@@ -565,7 +565,7 @@ eliminate_empty_fields <- function(df,field_list) {
 
 ################# MOSTLY FUNCTIONS ABOVE THIS LINE ###################
 
-cached_mode <- TRUE # To obtain cached-mode operation from RStudio:
+cached_mode <- FALSE # To obtain cached-mode operation from RStudio:
 # 1) Use setwd() to set the working directory manually.
 # 2) > touch *.csv
 # 3) > touch *.xlsx

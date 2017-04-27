@@ -139,7 +139,7 @@ server <- shinyServer(function(input, output) {
     } else if (input$plot_type == "Pageviews") {
       adjust_axis_and_plot(sbm_pageviews,"Pageviews by Month",month_list,hues)
     }
-    legend("bottomleft",inset=c(0.05,0.05), fill=rev(hues), legend=c("This month","Previous months"))
+    legend("bottomright",inset=c(0.05,0.05), fill=rev(hues), legend=c("This month","Previous months"))
   })
   output$analytics_table = DT::renderDataTable({
     site_stats_reversed[,!(names(site_stats_reversed) %in% c("year","month"))] #df_analytics
