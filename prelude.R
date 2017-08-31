@@ -55,10 +55,6 @@ library(plyr) # Loaded to use the rename function (and override dplyr::rename).
 # plyr::rename.
 library(httr)
 
-library(RGA)
-# RGA documentation is here:
-# https://cran.r-project.org/web/packages/RGA/vignettes/authorize.html
-
 
 convert_to_html_list <- function(df) {
   # A function that takes a dataframe and outputs a string representing 
