@@ -121,10 +121,13 @@ get_API_requests_gar <- function(start_date,end_date,
                              sort = c("-ga:totalEvents"),
                              max_results = 99999
                              )
-  return(API_requests)
+    # The Query Explorer
+    #   https://ga-dev-tools.appspot.com/query-explorer/
+    # is useful for constructing such queries.
+    return(API_requests)
   } else {
     return(NULL) # The backup option should really be better than returning NULL.
-    # Maybe we should fall back to the .httr-whatehver authentication method, then
+    # Maybe we should fall back to the .httr-whatever authentication method, then
     # fall back to an old cached CSV before finally giving up.
   }
 }
