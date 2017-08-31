@@ -54,9 +54,6 @@ library(plyr) # Loaded to use the rename function (and override dplyr::rename).
 # Otherwise, it's necessary to replace all instances of rename with
 # plyr::rename.
 library(httr)
-#library(RGoogleAnalytics)
-# Some online documentation for how to use RGoogleAnalytics is out of date.
-# Consult demo(package="RGoogleAnalytics") instead.
 
 library(RGA)
 # RGA documentation is here:
@@ -685,7 +682,6 @@ refresh_download_data <- refresh_resource_info | refresh_package_info | force_re
 if(refresh_download_data) {
   API_requests_month <- get_API_requests_gar(today-days(x=30),yesterday,p_Id,production)
   #  API_requests_month <- get_API_requests("30daysAgo","yesterday",p_Id,client_id,client_secret,production)
-  #API_requests_month <- get_API_requests_r_goo(today-days(x=30),yesterday,p_Id,client_id,client_secret,production)
   downloads_per_month <- reduce_to_category(API_requests_month,"CKAN Resource Download Request") #This reduces to downloads
   
 #  if(include_API_calls) { # This is for the 30-day API calls.
@@ -695,7 +691,6 @@ if(refresh_download_data) {
 #  }
   all_API_requests <- get_API_requests_gar("2015-10-15",yesterday,p_Id,production)
 #  all_API_requests <- get_API_requests("2015-10-15","yesterday",p_Id,client_id,client_secret,production)
-  #all_API_requests <- get_API_requests_r_goo("2015-10-15",yesterday,p_Id,client_id,client_secret,production)
   all_downloads <- reduce_to_category(all_API_requests,"CKAN Resource Download Request")
 
   if(include_API_calls) {

@@ -1,4 +1,3 @@
-library(RGoogleAnalytics)
 library(lubridate)
 library(googleAnalyticsR)
 library(googleAuthR)
@@ -73,67 +72,6 @@ get_pageviews <- function(start_date="30daysAgo",end_date="yesterday",
   #   https://ga-dev-tools.appspot.com/query-explorer/
   # is useful for constructing such queries.
   return(pageviews)
-}
-######################### RGoogleAnalytics helper functions
-create_credentials <- function(client_id,client_secret,token_file,production) {
-  if(!production) {
-    oauth_token <- Auth(client.id = client_id, client.secret = client_secret)
-    oauth_token$init_credentials()
-    save(oauth_token, file = token_file)
-    return(oauth_token)
-  }
-  return(NULL)
-}
-
-authorize_analytics_r_goo <- function(p_Id,client_id,client_secret,production) {
-  # This method only works under two conditions. If the token file exists and is
-  # valid, it will work. In non-production mode, the token can be recreated and
-  # saved using manual web authentication. Otherwise, this approach seems to fail
-  token_file <- "rgoogleanalytics_oauth_token"
-  if(file.exists(token_file)) {
-    load(token_file)
-    ValidateToken(oauth_token)
-    # This function checks whether the Access Token is expired. 
-    # If yes, it generates a new Access Token and updates the token object
-##  save(oauth_token, file = token_file)
-#    if(!ValidateToken(oauth_token)) {
-#      create_credentials(client_id,client_secret,token_file)
-      # As documented on this page
-      #   http://wearecoder.com/questions/k80x2/refresh-oauth-token-in-r-using-rgoogle-analytics
-      # this is not quite enough, as running ValidateToken() may produce "Error: Refresh token not available"
-      
-      # So you have to do this once:
-      # oauth_token$init_credentials()
-      # This pulls up the web page that allows you to choose a Google login.
-#    }
-  } else {
-    oauth_token <- create_credentials(client_id,client_secret,token_file,production)
-  }
-  return(oauth_token)
-}
-
-
-get_API_requests_r_goo <- function(start_date,end_date,
-                             p_Id,client_id=NULL,client_secret=NULL,
-                             production=FALSE) {
-  #A start date must be specified of the form YYYY-MM-DD
-
-  
-  oauth_token <- authorize_analytics_r_goo(p_Id,client_id,client_secret,production)
-  q.events <- Init(start.date = as.character(start_date),
-                 end.date = as.character(end_date),
-                 dimensions = c("ga:eventCategory", "ga:eventLabel"),
-                 metrics = c("ga:totalEvents", "ga:uniqueEvents"),
-                 sort = c("-ga:totalEvents"),
-                 max.results = 99999,
-                 table.id = p_Id)
-  GA_events <- QueryBuilder(q.events)
-  if(is.null(oauth_token)) {
-    return(NULL)
-  }
-  API_requests <- GetReportData(GA_events, oauth_token, paginate_query = FALSE)
-
-  return(API_requests)
 }
 ###########################################################
 source("authentication.R") # Look up the p_Id, client ID, and client
