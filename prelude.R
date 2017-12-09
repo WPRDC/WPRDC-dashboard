@@ -162,8 +162,18 @@ name_datasets <- function(df) {
   # this to obtain resource names, organizations, package names, ID values,
   # and URLs to label the Google Analytics statistics (which are listed 
   # by resource ID).
+  
+  # A solution to maintaining resource IDs to look up Google Analytics stats
+  # of dearly departed resources:
+  #   1) Use the dataset-tracker Python script to store all resource IDs in 
+  #   a database (itself stored as a CKAN dataset).
+  #   2) Get that dataset and use it in place of the resource map. 
+  #   OR
+  #   2) Get that dataset and join it with the resource map obtained from
+  #   the current_package_list_with_resources API endpoint. [current option]
+  
   host <- "data.wprdc.org"
-  json_file <- paste0("https://",host,"/api/3/action/current_package_list_with_resources?limit=9999")
+  json_file <- paste0("https://",host,"/api/3/action/current_package_list_with_resources?limit=999999")
   json_data <- fromJSON(json_file)
   
   cached_resource_map_file <- "cached_resource_map.csv"
@@ -181,7 +191,7 @@ name_datasets <- function(df) {
       for(k in 1:length(package$resources[[1]]$id)) {
         resources <- package$resources[[1]]
         if((length(resources$name) > 0)) {
-          if(is.na(resources$name[[k]])) {
+          if(is.na(resources$name[[k]]) | (resources$name[[k]] == "")) {
             resource <- "Unnamed resource"
           } else {
             resource <- resources$name[[k]]
@@ -222,7 +232,12 @@ name_datasets <- function(df) {
         }
       }
     }
-    
+    tracks <- get_tracking_history()
+    common_fields <- intersect(names(resource_map), names(tracks))
+    resource_map <- merge(resource_map,tracks,
+                          by.x=append(common_fields,'id'),
+                          by.y=append(common_fields,'resource_id'),
+                          all=TRUE)
     # The next part could probably more simply be done with the merge function.
     resource_map$"30-day downloads" <- 0
     resource_map$"30-day unique downloads" <- 0
@@ -732,7 +747,6 @@ if(refresh_download_data) {
   # place?
   df_downloads_and_pageviews <- merge(df_downloads_and_pageviews,months_of_first_download,
                                       by.x="Resource ID", by.y="id", all.x=TRUE)
-  
   df_downloads_and_pageviews <- df_downloads_and_pageviews[c("Package","Resource",
                                                              "Organization",
                                                              "30-day downloads",
