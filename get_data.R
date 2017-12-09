@@ -184,3 +184,18 @@ get_monthly_package_downloads <- function() {
   # Pull WPRDC monthly downloads stats by package from a dedicated data repository on wprdc.org.
   return(get_monthly_downloads_stats("d72725b1-f163-4378-9771-14ce9dad3002","Package ID"))
 }
+
+get_tracking_history <- function() {
+  # Pull resource tracking history from a dedicated data repository on wprdc.org.
+  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=272071c7-353a-43f6-9007-96a944c8dab1&limit=99999"
+  json_data <- authorize_json_request(json_file,CKAN_API_key)
+  
+  if(exists("json_data")) {
+    tracks <- json_data$result$records
+    tracks <- rename(tracks,c("package_name"="Package","resource_name"="Resource","organization"="Organization"))
+    tracks$`_id` <- NULL
+  } else {
+    tracks <- NULL
+  }
+  return(tracks) 
+}
