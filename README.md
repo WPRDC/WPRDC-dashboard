@@ -26,3 +26,9 @@ and 2) making sure that the R packages are installed in such a way that the Shin
 
 https://deanattali.com/2015/05/09/setup-rstudio-shiny-server-digital-ocean/#user-libraries
 )
+
+Also, when deploying a Shiny app for the first time, even after following all the Linux permissions steps described in the links above, you still may need to execute this in the Shiny app directory:
+
+```
+> sudo chown -R shiny:shiny-apps .
+```
