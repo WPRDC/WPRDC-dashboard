@@ -11,8 +11,10 @@ All data critical to the running of the dashboard is cached in CSV files (or as 
 Used alone, this approach would occasionally result in users encountering long load times during data refreshes, so all of the data-loading and -transforming operations were pulled out of app.R into a separate file (prelude.R). The prelude.R script is periodically run from a separate refresh_now.R script that overrides all the cache-checking and forces all data to be redownloaded in the background. Long load times for users are eliminated by running refresh_now.R more frequently than any cache lifetime, via a cron job that looks like this:
 
 ```
-1,16,31,46 * * * * cd /srv/shiny-server/wprdc-dashboard && /usr/bin/R CMD BATCH /srv/shiny-server/wprdc-dashboard/refresh_now.R
+1,16,31,46 * * * * cd /srv/shiny-server/wprdc-dashboard && nice /usr/bin/R CMD BATCH /srv/shiny-server/wprdc-dashboard/refresh_now.R
 ```
+
+(We found that the "nice" command is useful since the refresh_now script can occasionally [for as yet undetermined reasons] use up all the server's CPU, leading to issues like system sluggishness.)
 
 To make this dashboard work, it's necessary to set up all the Google authentication (by setting up a service account and locating the JSON file containing authentication credentials in the same directory as the R scripts) and provide an R script (called "authentication.R") that sets a Boolean variable called "production", the Google Sheets key (a string called "sheet_key"), the CKAN API key (called "CKAN_API_key") [though this is only necessary if you are pulling data from repositories on CKAN that are still private], and the profile ID for the Google Analytics data (under a string called "p_Id").
 
