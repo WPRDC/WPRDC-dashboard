@@ -158,23 +158,23 @@ reduce_to_category <- function(df,category) {
 }
 
 name_datasets <- function(df) {
-  # Pull from the Data Center's CKAN API a list of all resources and use 
+  # Pull from the Data Center's CKAN API a list of all resources and use
   # this to obtain resource names, organizations, package names, ID values,
-  # and URLs to label the Google Analytics statistics (which are listed 
+  # and URLs to label the Google Analytics statistics (which are listed
   # by resource ID).
-  
+
   # A solution to maintaining resource IDs to look up Google Analytics stats
   # of dearly departed resources:
-  #   1) Use the dataset-tracker Python script to store all resource IDs in 
+  #   1) Use the dataset-tracker Python script to store all resource IDs in
   #   a database (itself stored as a CKAN dataset).
-  #   2) Get that dataset and use it in place of the resource map. 
+  #   2) Get that dataset and use it in place of the resource map.
   #   OR
   #   2) Get that dataset and join it with the resource map obtained from
   #   the current_package_list_with_resources API endpoint. [current option]
   
   host <- "data.wprdc.org"
   json_file <- paste0("https://",host,"/api/3/action/current_package_list_with_resources?limit=999999")
-  json_data <- fromJSON(json_file)
+  json_data <- fromJSON(readLines(json_file))
   
   cached_resource_map_file <- "cached_resource_map.csv"
   

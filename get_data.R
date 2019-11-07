@@ -16,7 +16,7 @@ authorize_json_request <- function(url,API_key) { # This function dies with an e
   # when there is no Internet connection.
   req <- httr::GET(url, httr::add_headers(Authorization = API_key))
   json <- httr::content(req, as = "text")
-  json_data <- fromJSON(json)
+  json_data <- fromJSON(readLines(json))
   return(json_data)
 }
 
