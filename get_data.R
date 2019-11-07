@@ -4,6 +4,9 @@ library(googleAuthR)
 library(jsonlite)
 library(httr)
 
+ckan_max_results <- 9999999
+ga_max_results <- 9999999
+
 source("authentication.R") # Look up the p_Id, client ID, and client
 # secret to access the Google Analytics account. Also determine the
 # value of the production variable, which sets whether this is a
@@ -49,7 +52,7 @@ get_API_requests_gar <- function(start_date,end_date,
                              metrics = c("ga:totalEvents", "ga:uniqueEvents"),
                              dimensions = c("ga:eventCategory", "ga:eventLabel"),
                              sort = c("-ga:totalEvents"),
-                             max_results = 999999
+                             max_results = ga_max_results
                              )
     # The Query Explorer
     #   https://ga-dev-tools.appspot.com/query-explorer/
@@ -74,7 +77,7 @@ get_pageviews_gar <- function(start_date,end_date,
                                      metrics = c("ga:pageviews"), 
                                      dimensions = c("ga:pagePath"),
                                      sort = c("-ga:pageviews"),
-                                     max_results = 999999
+                                     max_results = ga_max_results
     )
     # This call to google_analytics seems to be the source of the 
     # following warning which I just noticed appearing on the console
@@ -133,7 +136,7 @@ refresh_it <- function(data_getter,get_that_data,cache_file) {
 
 get_site_stats <- function() {
   # Pull WPRDC stats from a dedicated data repository on wprdc.org.
-  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=999999"
+  json_file <- paste("https://data.wprdc.org/api/action/datastore_search?resource_id=865441c9-498a-4a3f-8f52-3a865c1c421a&limit=",ckan_max_results,sep="")
   json_data <- authorize_json_request(json_file,CKAN_API_key)
     
   if(exists("json_data")) {
@@ -159,7 +162,7 @@ get_site_stats <- function() {
 
 get_monthly_downloads_stats <- function(resource_id,field_name) {
   # Pull WPRDC monthly downloads stats from a dedicated data repository on wprdc.org.
-  json_file <- paste("https://data.wprdc.org/api/action/datastore_search?resource_id=",resource_id,"&limit=9999999",sep="")
+  json_file <- paste("https://data.wprdc.org/api/action/datastore_search?resource_id=",resource_id,"&limit=",ckan_max_results,sep="")
   json_data <- authorize_json_request(json_file,CKAN_API_key)
 
   if(exists("json_data")) {
@@ -187,7 +190,7 @@ get_monthly_package_downloads <- function() {
 
 get_tracking_history <- function() {
   # Pull resource tracking history from a dedicated data repository on wprdc.org.
-  json_file <- "https://data.wprdc.org/api/action/datastore_search?resource_id=272071c7-353a-43f6-9007-96a944c8dab1&limit=999999"
+  json_file <- paste("https://data.wprdc.org/api/action/datastore_search?resource_id=272071c7-353a-43f6-9007-96a944c8dab1&limit=",ckan_max_results,sep="")
   json_data <- authorize_json_request(json_file,CKAN_API_key)
   
   if(exists("json_data")) {
